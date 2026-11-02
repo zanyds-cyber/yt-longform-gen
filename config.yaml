@@ -1,0 +1,50 @@
+# ===== YouTube 롱폼 영상 생성기 설정 =====
+# API 키는 환경변수로: ANTHROPIC_API_KEY / OPENAI_API_KEY / PEXELS_API_KEY
+
+claude:
+  model: claude-opus-5-5
+  effort: high              # low | medium | high | xhigh | max
+  # 채널 톤 — 대본 품질에 가장 큰 영향을 줍니다. 자유롭게 바꾸세요.
+  channel_style: >
+    落ち着いた語り口の解説チャンネル。です・ます調。
+    視聴者に語りかけるように、具体例やエピソードを交えて分かりやすく。
+  chars_per_minute: 330     # 일본어 내레이션 속도 기준 (분당 글자 수)
+
+tts:
+  engine: edge              # edge(무료) | voicevox(무료, 로컬 실행 필요) | dummy(테스트용 무음)
+  edge_voice: ja-JP-NanamiNeural   # 남성: ja-JP-KeitaNeural
+  edge_rate: "+0%"
+  voicevox_url: http://127.0.0.1:50021
+  voicevox_speaker: 13      # VOICEVOX 화자 ID (13 = 青山龍星 ノーマル 등, 엔진에서 확인)
+  concurrency: 4
+
+image:
+  provider: pollinations    # pollinations(무료) | openai(유료) | pexels(무료 키) | placeholder(오프라인)
+  style: "cinematic photo, highly detailed, soft natural lighting, 16:9, no text, no watermark"
+  openai_model: gpt-image-1
+  openai_quality: medium    # low | medium | high
+  concurrency: 3
+
+video:
+  width: 1920
+  height: 1080
+  fps: 30
+  motion: kenburns          # kenburns(줌/팬) | none(정지 이미지, 렌더링 빠름)
+  preset: veryfast          # x264 preset
+  crf: 20
+  sentence_gap: 0.25        # 문장 사이 무음(초)
+  scene_tail: 0.6           # 장면 끝 여백(초)
+  workers: 2                # 클립 병렬 렌더링 수 (CPU 코어 절반 정도 권장)
+
+subtitle:
+  enabled: true
+  font: IPAGothic           # 시스템에 설치된 일본어 폰트 이름 (예: Noto Sans CJK JP)
+  size: 62
+  max_chars: 24             # 한 줄 최대 글자 수
+  outline: 4
+  margin_bottom: 70
+  burn: true                # 영상에 자막을 입힘 (false면 subtitles.srt만 생성 → YouTube에 업로드)
+
+bgm:
+  path: ""                  # mp3/wav 경로 (비우면 BGM 없음). 폴더를 주면 랜덤 선택
+  volume: 0.10
