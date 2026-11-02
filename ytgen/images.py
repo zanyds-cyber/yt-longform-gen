@@ -119,11 +119,11 @@ def make_image(prompt: str, out: Path, w: int, h: int, cfg: dict, label: str = "
     return out
 
 
-def make_all(jobs: list[tuple[str, str]], img_dir: Path, w: int, h: int, cfg: dict) -> list[Path]:
-    """jobs: [(prompt, label)] → 이미지 경로 목록 (프롬프트 해시로 캐시)."""
+def make_all(jobs: list[tuple], img_dir: Path, w: int, h: int, cfg: dict) -> list[Path]:
+    """jobs: [(prompt, label[, seed])] → 이미지 경로 목록 (프롬프트 해시로 캐시)."""
     img_dir.mkdir(parents=True, exist_ok=True)
     key = {k: cfg.get(k) for k in ("provider", "style", "openai_model", "openai_quality")}
-    paths = [img_dir / f"{short_hash(p, key, w, h)}.jpg" for p, _ in jobs]
+    paths = [img_dir / f"{short_hash(j[0], key, w, h, *j[2:])}.jpg" for j in jobs]
     todo = [(j, p) for j, p in zip(jobs, paths) if not p.exists()]
     if todo:
         log(f"[image] {cfg.get('provider')}: {len(todo)} images")

@@ -1,50 +1,87 @@
-# ===== YouTube 롱폼 영상 생성기 설정 =====
-# API 키는 환경변수로: ANTHROPIC_API_KEY / OPENAI_API_KEY / PEXELS_API_KEY
+# ===== YouTube 자동 운영 파이프라인 설정 =====
+# API 키는 .env 파일에:  YOUTUBE_API_KEY / ANTHROPIC_API_KEY / PEXELS_API_KEY / PIXABAY_API_KEY / OPENAI_API_KEY
 
 claude:
   model: claude-opus-5-5
   effort: high              # low | medium | high | xhigh | max
-  # 채널 톤 — 대본 품질에 가장 큰 영향을 줍니다. 자유롭게 바꾸세요.
+  # 채널 톤 — 대본 품질에 가장 큰 영향을 줍니다.
   channel_style: >
-    落ち着いた語り口の解説チャンネル。です・ます調。
-    視聴者に語りかけるように、具体例やエピソードを交えて分かりやすく。
-  chars_per_minute: 330     # 일본어 내레이션 속도 기준 (분당 글자 수)
+    「へぇ〜雑学」— 思わず誰かに話したくなる雑学を、ずんだもんと四国めたんの掛け合いで
+    分かりやすく楽しく解説するチャンネル。具体例・数字・身近な例えを多めに。
+  chars_per_minute: 330     # 일본어 기준 분당 글자 수
 
 tts:
-  engine: edge              # edge(무료) | voicevox(무료, 로컬 실행 필요) | dummy(테스트용 무음)
-  edge_voice: ja-JP-NanamiNeural   # 남성: ja-JP-KeitaNeural
-  edge_rate: "+0%"
+  engine: voicevox          # voicevox(무료·로컬, 기본) | edge(무료·클라우드) | dummy(테스트)
+  mode: dialogue            # dialogue(2인 掛け合い) | narration(1인)
   voicevox_url: http://127.0.0.1:50021
-  voicevox_speaker: 13      # VOICEVOX 화자 ID (13 = 青山龍星 ノーマル 등, 엔진에서 확인)
-  concurrency: 4
+  voicevox_speaker: 3       # narration 모드 화자 ID (3 = ずんだもん ノーマル). `python -m ytgen voices`로 확인
+  voicevox:                 # 전체 공통 조정
+    speedScale: 1.15
+    intonationScale: 1.1
+    prePhonemeLength: 0.05
+    postPhonemeLength: 0.05
+  characters:               # dialogue 모드 캐릭터 (이름은 대본의 「이름：」과 일치해야 함)
+    - name: 四国めたん
+      speaker: 2            # 四国めたん ノーマル
+      role: 解説役。落ち着いたお嬢様口調で、丁寧に分かりやすく説明する。
+      color: "&H00C9A0FF"   # 자막 색 (ASS &H00BBGGRR)
+      image: ""             # 스탠딩 이미지 PNG(투명 배경) 경로. 비우면 표시 안 함
+      position: left
+      height: 0.45
+    - name: ずんだもん
+      speaker: 3            # ずんだもん ノーマル
+      role: 聞き役。好奇心旺盛で素直にリアクションする。語尾は「〜のだ」「〜なのだ」。
+      color: "&H0066E08A"
+      image: ""
+      position: right
+      height: 0.45
+  edge_voice: ja-JP-NanamiNeural
+  edge_rate: "+0%"
+
+media:
+  mode: auto                # auto(스톡 영상 → 없으면 이미지) | video | image
+  sources: [pexels, pixabay]
+  segment_seconds: 7        # 스톡 영상 1개당 길이 → 긴 장면은 여러 영상으로 이어붙임
+  max_clips_per_scene: 4
 
 image:
-  provider: pollinations    # pollinations(무료) | openai(유료) | pexels(무료 키) | placeholder(오프라인)
-  style: "cinematic photo, highly detailed, soft natural lighting, 16:9, no text, no watermark"
+  provider: pollinations    # pollinations(무료) | openai(유료) | pexels(사진) | placeholder
+  style: "cinematic photo, highly detailed, soft natural lighting, no text, no watermark"
   openai_model: gpt-image-1
-  openai_quality: medium    # low | medium | high
+  openai_quality: medium
   concurrency: 3
 
 video:
   width: 1920
   height: 1080
   fps: 30
-  motion: kenburns          # kenburns(줌/팬) | none(정지 이미지, 렌더링 빠름)
-  preset: veryfast          # x264 preset
+  motion: kenburns          # 이미지 장면: kenburns(줌/팬) | none
+  preset: veryfast
   crf: 20
-  sentence_gap: 0.25        # 문장 사이 무음(초)
-  scene_tail: 0.6           # 장면 끝 여백(초)
-  workers: 2                # 클립 병렬 렌더링 수 (CPU 코어 절반 정도 권장)
+  sentence_gap: 0.2
+  scene_tail: 0.5
+  workers: 2                # 클립 병렬 렌더링 수
 
 subtitle:
   enabled: true
-  font: IPAGothic           # 시스템에 설치된 일본어 폰트 이름 (예: Noto Sans CJK JP)
+  burn: true                # false면 subtitles.srt만 (업로드 시 자막 트랙으로 올라감)
+  font: IPAGothic           # 예: Noto Sans CJK JP / Meiryo / Hiragino Sans
   size: 62
-  max_chars: 24             # 한 줄 최대 글자 수
-  outline: 4
-  margin_bottom: 70
-  burn: true                # 영상에 자막을 입힘 (false면 subtitles.srt만 생성 → YouTube에 업로드)
+  max_chars: 24
+  outline: 5
+  margin_bottom: 60
+  margin_lr: 420            # 좌우 캐릭터 이미지와 겹치지 않게 (캐릭터 없으면 80 정도로)
 
 bgm:
-  path: ""                  # mp3/wav 경로 (비우면 BGM 없음). 폴더를 주면 랜덤 선택
-  volume: 0.10
+  path: ""                  # 파일 또는 폴더(랜덤). 저작권 프리 음원만
+  volume: 0.08
+
+upload:
+  client_secret: credentials/client_secret.json
+  token: credentials/token.json
+  privacy: private          # private | unlisted | public  (처음엔 private 로 확인 후 공개 권장)
+  category_id: 27           # 27=교육, 24=엔터테인먼트, 28=과학기술
+  made_for_kids: false
+  contains_synthetic_media: false   # 실사처럼 보이는 AI 합성 장면이 있으면 true
+  upload_captions: true
+  description_footer: ""    # 설명란 끝에 항상 붙일 문구
