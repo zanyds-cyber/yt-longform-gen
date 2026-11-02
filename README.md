@@ -44,6 +44,37 @@ python -m ytgen web        # → http://127.0.0.1:8765
 - **롱폼에서 숏츠 만들기**
 - **업로드** (비공개/일부 공개/공개, 예약 공개)
 
+## PC 앱 — ytgen Studio (브루식 편집기)
+
+아이콘을 더블클릭하면 앱 창이 열립니다. 설치·설정은 모두 화면에서 합니다.
+
+**편집기 화면** (프로젝트 → [편집기])
+- 왼쪽: 미리보기 플레이어 — 렌더링 없이 바로 재생 (스톡 영상 + 캐릭터 + 화자별 색 자막 + VOICEVOX 음성)
+- 오른쪽: 대본 — 대사 한 줄 = 클립 하나. 글자를 고치면 그 줄 음성만 새로 생성
+  - 화자 이름 클릭 → 화자 변경 · Enter → 아래에 새 대사 · 빈 대사에서 Backspace → 삭제
+  - 장면마다 [🔍 영상 검색] (Pexels/Pixabay 썸네일에서 골라 넣기, Shift+클릭은 추가) · [↻ 자동] · [📁 파일]
+  - 스페이스: 재생/정지 · ↑↓: 줄 이동
+- [⬇ 영상 내보내기] → 최종 mp4 · 썸네일 · 설명란, [조사·주제·업로드] → 기존 단계 화면
+
+**설정 화면**: ffmpeg 상태(없으면 [자동 설치]) · VOICEVOX 연결/실행 · API 키 · 캐릭터(목소리·자막 색·위치·스탠딩 이미지 업로드) · 자막 폰트 · 채널 톤
+설정·키·결과물은 사용자 폴더에 저장됩니다 (Windows `%APPDATA%\ytgen`, Mac `~/Library/Application Support/ytgen`).
+
+### 앱 받는 방법
+**A. GitHub에서 자동 빌드 (PC에 Python 불필요)**
+1. 이 폴더를 GitHub 저장소로 올립니다
+2. 저장소 → Actions → `Build desktop app` → Run workflow
+3. 완료되면 Artifacts에서 `ytgen-studio-Windows` / `ytgen-studio-macOS` 다운로드 → 압축 해제 → 실행
+   (`v1.0` 같은 태그를 push하면 Releases에도 올라갑니다)
+
+**B. 내 PC에서 직접 빌드** (Python 3.10+ 필요)
+- Windows: `packaging\build_windows.bat` 더블클릭 → `dist\ytgen-studio\ytgen-studio.exe`
+- Mac: `bash packaging/build_mac.sh` → `dist/ytgen Studio.app`
+
+**C. 빌드 없이 바로**: `pip install -r requirements.txt -r requirements-desktop.txt` 후 `python -m ytgen app`
+
+> 서명되지 않은 앱이라 처음 실행 때 경고가 뜹니다. Windows: [추가 정보] → [실행] / Mac: 우클릭 → [열기]
+> VOICEVOX는 별도 설치 후 실행해 두세요 (설정 화면의 [VOICEVOX 실행] 버튼으로도 가능).
+
 ## 사용법 — CLI
 
 ```bash

@@ -3,3 +3,9 @@ __pycache__/
 *.pyc
 .env
 credentials/
+settings.yaml
+assets/
+build/
+dist/
+.venv/
+packaging/ffmpeg/

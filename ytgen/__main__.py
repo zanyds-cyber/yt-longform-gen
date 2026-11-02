@@ -11,50 +11,16 @@
   python -m ytgen upload output/<프로젝트> --privacy private        # 6. 업로드
   python -m ytgen web                                               # 편집 화면 (http://127.0.0.1:8765)
   python -m ytgen voices                                            # VOICEVOX 화자 ID 목록
+  python -m ytgen app                                               # PC 앱 창으로 실행 (브루식 편집기)
 """
 from __future__ import annotations
 
 import argparse
 import sys
-from datetime import datetime
 from pathlib import Path
 
-from .common import load_config, log, read_json, slugify, write_json
-
-
-def new_project(root: Path, name: str) -> Path:
-    p = root / f"{datetime.now():%Y%m%d_%H%M}_{slugify(name)}"
-    p.mkdir(parents=True, exist_ok=True)
-    return p
-
-
-def do_research(cfg, out_root: Path, keyword, trending, days, duration, category) -> Path:
-    from . import research
-    res = research.run_research(None if trending else keyword, days=days, duration=duration, category=category)
-    proj = new_project(out_root, keyword if not trending else f"trending_{category}")
-    write_json(proj / "research.json", res)
-    (proj / "research.md").write_text(research.report_md(res), encoding="utf-8")
-    log(f"[research] → {proj / 'research.md'}")
-    return proj
-
-
-def do_topics(cfg, proj: Path, notes: str = "") -> dict:
-    from . import script
-    data = script.propose_topics(cfg, read_json(proj / "research.json"), 3, notes)
-    write_json(proj / "topics.json", data)
-    return data
-
-
-def do_script(cfg, proj: Path, pick: int, minutes: int | None = None, notes: str = "") -> dict:
-    from . import script
-    topics = read_json(proj / "topics.json")["topics"]
-    t = topics[pick - 1]
-    res = read_json(proj / "research.json") if (proj / "research.json").exists() else None
-    brief = script.topic_brief(t, res) + (("\n\n" + notes) if notes else "")
-    data = script.generate(cfg, t["title"], minutes or t["minutes"], brief, out_path=proj / "script.json")
-    data["picked_topic"] = t
-    write_json(proj / "script.json", data)
-    return data
+from .common import load_config, log, write_json
+from .pipeline import do_research, do_script, do_topics, new_project
 
 
 def main(argv=None) -> int:
@@ -94,6 +60,7 @@ def main(argv=None) -> int:
 
     s = sub.add_parser("web"); s.add_argument("--port", type=int, default=8765); s.add_argument("--host", default="127.0.0.1")
     sub.add_parser("voices")
+    sub.add_parser("app")
 
     a = ap.parse_args(argv)
     cfg = load_config(a.config)
@@ -142,7 +109,10 @@ def main(argv=None) -> int:
         upload.upload(Path(a.project), cfg, a.privacy, a.publish_at)
     elif a.cmd == "web":
         from . import web
-        web.serve(cfg, out_root, a.host, a.port)
+        web.serve(cfg, out_root, a.host, a.port, a.config)
+    elif a.cmd == "app":
+        from . import desktop
+        desktop.main()
     elif a.cmd == "voices":
         from . import tts
         for s in tts.voicevox_speakers(cfg.get("tts", {})):

@@ -20,7 +20,14 @@ JOBS: dict[str, dict] = {}
 BUSY: set[str] = set()
 
 
-def serve(cfg: dict, out_root: Path, host: str = "127.0.0.1", port: int = 8765) -> None:
+def serve(cfg: dict, out_root: Path, host: str = "127.0.0.1", port: int = 8765,
+          config_path: str | None = None) -> None:
+    app = create_app(cfg, out_root, config_path)
+    log(f"편집 화면: http://{host}:{port}")
+    app.run(host=host, port=port, debug=False, threaded=True)
+
+
+def create_app(cfg: dict, out_root: Path, config_path: str | None = None) -> Flask:
     out_root = out_root.resolve()
     out_root.mkdir(parents=True, exist_ok=True)
     app = Flask(__name__)
@@ -45,7 +52,8 @@ def serve(cfg: dict, out_root: Path, host: str = "127.0.0.1", port: int = 8765) 
         jid = uuid.uuid4().hex[:8]
         (p / "work").mkdir(parents=True, exist_ok=True)
         logp = p / "work" / f"job_{jid}.log"
-        JOBS[jid] = {"status": "running", "log": logp, "kind": kind, "project": rel(p)}
+        JOBS[jid] = {"status": "running", "log": logp, "kind": kind,
+                     "project": rel(p) if out_root in p.parents else ""}
         BUSY.add(key)
 
         def runner():
@@ -98,10 +106,11 @@ def serve(cfg: dict, out_root: Path, host: str = "127.0.0.1", port: int = 8765) 
             stage = ("업로드됨" if (d / "upload.json").exists() else "완성" if (d / "final.mp4").exists()
                      else "대본" if (d / "script.json").exists() else "주제" if (d / "topics.json").exists()
                      else "조사" if (d / "research.json").exists() else "-")
-            rows.append(f"<tr><td><a href='/p?name={html.escape(d.name)}'>{html.escape(title)}</a></td>"
+            ed = f" <a class=pill href='/edit?name={html.escape(d.name)}'>편집기</a>" if (d / "script.json").exists() else ""
+            rows.append(f"<tr><td><a href='/p?name={html.escape(d.name)}'>{html.escape(title)}</a>{ed}</td>"
                         f"<td>{stage}</td><td class=muted>{html.escape(d.name[:13])}</td></tr>")
         return page("프로젝트", f"""
-<h1>YouTube 자동 운영</h1>
+<div class=row style="justify-content:space-between"><h1>YouTube 자동 운영</h1><a class=pill href='/settings'>⚙ 설정</a></div>
 <div class=grid2>
 <section class=card><h2>1. 조사로 시작</h2>
  <label>키워드 <input id=kw placeholder="例: 雑学 動物 / ずんだもん 解説"></label>
@@ -123,7 +132,8 @@ def serve(cfg: dict, out_root: Path, host: str = "127.0.0.1", port: int = 8765) 
     def project_page():
         p = proj(request.args.get("name"))
         name = rel(p)
-        parts = [f"<p><a href='/'>← 프로젝트 목록</a></p><h1>{html.escape(name)}</h1>"]
+        ed = f" · <a class=pill href='/edit?name={name}'>✎ 브루식 편집기로 열기</a>" if (p / "script.json").exists() else ""
+        parts = [f"<p><a href='/'>← 프로젝트 목록</a>{ed}</p><h1>{html.escape(name)}</h1>"]
         # 조사
         if (p / "research.json").exists():
             res = read_json(p / "research.json")
@@ -248,7 +258,7 @@ def serve(cfg: dict, out_root: Path, host: str = "127.0.0.1", port: int = 8765) 
     @app.post("/api/<action>")
     def api(action):
         b = body()
-        from . import __main__ as cli, render, script as script_mod, shorts, upload
+        from . import pipeline as cli, render, script as script_mod, shorts, upload
 
         if action == "research":
             kw = (b.get("keyword") or "").strip()
@@ -349,8 +359,9 @@ def serve(cfg: dict, out_root: Path, host: str = "127.0.0.1", port: int = 8765) 
         from . import render
         return ok(job=start(p, f"장면 {idx} 미리보기", lambda: str(render.preview_scene(p, cfg, idx))))
 
-    log(f"편집 화면: http://{host}:{port}")
-    app.run(host=host, port=port, debug=False, threaded=True)
+    from .web_editor import register
+    register(app, cfg, out_root, config_path, proj=proj, rel=rel, start=start, scene_at=scene_at, ok=ok)
+    return app
 
 
 CSS = """
@@ -378,6 +389,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}td,th{padding:6px;borde
 .media video,.media img{width:100%;border-radius:8px;background:#000;aspect-ratio:16/9;object-fit:cover}
 .empty{aspect-ratio:16/9;border:1px dashed var(--line);border-radius:8px;display:grid;place-items:center;text-align:center;color:var(--muted)}
 .final{width:100%;max-height:70vh;background:#000;border-radius:8px}.thumb{width:320px;margin-top:8px;border-radius:8px}
+.pill{display:inline-block;padding:3px 10px;border:1px solid var(--line);border-radius:99px;font-size:12px;text-decoration:none;color:var(--acc2)}
 #log{position:fixed;left:0;right:0;bottom:0;max-height:230px;overflow:auto;background:#0d0f14;color:#cfe3cf;font:12px/1.4 ui-monospace,monospace;padding:10px 16px;white-space:pre-wrap;display:none;border-top:2px solid var(--acc)}
 """
 

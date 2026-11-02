@@ -11,7 +11,7 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from .common import ROOT, log, read_json, write_json
+from .common import data_dir, log, read_json, write_json
 
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload",
           "https://www.googleapis.com/auth/youtube.force-ssl"]
@@ -24,8 +24,8 @@ def _service(cfg: dict):
     from googleapiclient.discovery import build
 
     uc = cfg.get("upload", {})
-    secret = ROOT / uc.get("client_secret", "credentials/client_secret.json")
-    token = ROOT / uc.get("token", "credentials/token.json")
+    secret = data_dir() / uc.get("client_secret", "credentials/client_secret.json")
+    token = data_dir() / uc.get("token", "credentials/token.json")
     creds = Credentials.from_authorized_user_file(str(token), SCOPES) if token.exists() else None
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:

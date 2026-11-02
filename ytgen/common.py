@@ -13,8 +13,54 @@ from pathlib import Path
 
 import yaml
 
-ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_CONFIG = ROOT / "config.yaml"
+# 실행 파일(PyInstaller)로 묶였을 때는 번들 안의 리소스 경로를 쓴다
+RES = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
+ROOT = RES
+DEFAULT_CONFIG = RES / "config.yaml"
+
+
+def data_dir() -> Path:
+    """설정·API 키·결과물을 두는 사용자 폴더.
+    - YTGEN_HOME 환경변수가 있으면 그곳
+    - PC 앱(실행 파일)으로 실행 중이면 OS의 앱 데이터 폴더 (Windows: %APPDATA%\\ytgen)
+    - 개발 모드(python -m ytgen)면 프로젝트 폴더
+    """
+    if os.environ.get("YTGEN_HOME"):
+        d = Path(os.environ["YTGEN_HOME"])
+    elif getattr(sys, "frozen", False):
+        if sys.platform == "win32":
+            d = Path(os.environ.get("APPDATA", Path.home())) / "ytgen"
+        elif sys.platform == "darwin":
+            d = Path.home() / "Library" / "Application Support" / "ytgen"
+        else:
+            d = Path.home() / ".local" / "share" / "ytgen"
+    else:
+        d = RES
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def user_config_path() -> Path:
+    p = data_dir() / "config.yaml"
+    if not p.exists() and DEFAULT_CONFIG.exists() and p != DEFAULT_CONFIG:
+        p.write_text(DEFAULT_CONFIG.read_text(encoding="utf-8"), encoding="utf-8")
+    return p
+
+
+# ---------- ffmpeg 위치 ----------
+def _tool(name: str) -> str:
+    import shutil
+    exe = name + (".exe" if sys.platform == "win32" else "")
+    for d in (data_dir() / "ffmpeg" / "bin", data_dir() / "ffmpeg", RES / "ffmpeg" / "bin", RES / "ffmpeg"):
+        if (d / exe).exists():
+            return str(d / exe)
+    return shutil.which(name) or name
+
+
+def ffmpeg_ok() -> bool:
+    import shutil
+    f = _tool("ffmpeg")
+    return Path(f).exists() or shutil.which(f) is not None
 
 # 웹 UI에서 작업별 로그를 파일로 받기 위한 스레드 로컬 싱크
 _sink = threading.local()
@@ -34,7 +80,7 @@ def log(msg: str) -> None:
 
 def load_env() -> None:
     """프로젝트 루트의 .env 를 환경변수로 로드 (이미 설정된 값은 유지)."""
-    for p in (ROOT / ".env", Path.cwd() / ".env"):
+    for p in (data_dir() / ".env", RES / ".env", Path.cwd() / ".env"):
         if p.exists():
             for line in p.read_text(encoding="utf-8").splitlines():
                 line = line.strip()
@@ -55,9 +101,45 @@ def deep_merge(base: dict, over: dict) -> dict:
 
 def load_config(path: str | Path | None = None) -> dict:
     load_env()
-    p = Path(path) if path else DEFAULT_CONFIG
+    p = Path(path) if path else user_config_path()
     with open(p, encoding="utf-8") as f:
-        return yaml.safe_load(f) or {}
+        cfg = yaml.safe_load(f) or {}
+    # 설정 화면에서 바꾼 값 (config.yaml 의 주석을 보존하려고 따로 저장)
+    sp = settings_path()
+    if sp.exists():
+        cfg = deep_merge(cfg, yaml.safe_load(sp.read_text(encoding="utf-8")) or {})
+    return cfg
+
+
+def settings_path() -> Path:
+    return data_dir() / "settings.yaml"
+
+
+def save_settings(changes: dict) -> None:
+    sp = settings_path()
+    cur = yaml.safe_load(sp.read_text(encoding="utf-8")) if sp.exists() else {}
+    sp.write_text(yaml.safe_dump(deep_merge(cur or {}, changes), allow_unicode=True, sort_keys=False),
+                  encoding="utf-8")
+
+
+def save_env(values: dict) -> None:
+    """data_dir/.env 에 키 저장(빈 값은 무시) + 현재 프로세스 환경변수에도 반영."""
+    p = data_dir() / ".env"
+    cur = {}
+    if p.exists():
+        for line in p.read_text(encoding="utf-8").splitlines():
+            if "=" in line and not line.strip().startswith("#"):
+                k, v = line.split("=", 1)
+                cur[k.strip()] = v.strip()
+    for k, v in values.items():
+        if v and v.strip():
+            cur[k] = v.strip()
+            os.environ[k] = v.strip()
+    p.write_text("".join(f"{k}={v}\n" for k, v in cur.items()), encoding="utf-8")
+    try:
+        os.chmod(p, 0o600)
+    except OSError:
+        pass
 
 
 def project_config(cfg: dict, project: Path) -> dict:
@@ -79,17 +161,24 @@ def slugify(text: str, maxlen: int = 40) -> str:
     return s[:maxlen] or "project"
 
 
+def _popen_kw() -> dict:
+    # Windows 앱에서 ffmpeg 콘솔 창이 깜빡이지 않게
+    return {"creationflags": 0x08000000} if sys.platform == "win32" else {}
+
+
 def run(cmd: list[str]) -> None:
-    r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    if cmd and cmd[0] in ("ffmpeg", "ffprobe"):
+        cmd = [_tool(cmd[0]), *cmd[1:]]
+    r = subprocess.run(cmd, **_popen_kw(), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     if r.returncode != 0:
         raise RuntimeError(f"command failed: {' '.join(cmd[:6])} ...\n{r.stderr[-2000:]}")
 
 
 def duration(path: str | Path) -> float:
     r = subprocess.run(
-        ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+        [_tool("ffprobe"), "-v", "error", "-show_entries", "format=duration",
          "-of", "default=nw=1:nk=1", str(path)],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, **_popen_kw(),
     )
     return float(r.stdout.strip())
 

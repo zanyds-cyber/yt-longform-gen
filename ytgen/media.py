@@ -33,8 +33,11 @@ def _pexels(query: str, portrait: bool, n: int = 20) -> list[dict]:
             continue
         target = 1080 if portrait else 1920
         files.sort(key=lambda f: (abs(min(f["width"], f["height"]) - min(target, 1080)), f["width"]))
+        small = min(files, key=lambda f: f["width"])
+        pics = v.get("video_pictures") or []
         out.append({"source": "pexels", "id": str(v["id"]), "url": files[0]["link"],
-                    "duration": v.get("duration", 0), "credit": v.get("user", {}).get("name", "")})
+                    "duration": v.get("duration", 0), "credit": v.get("user", {}).get("name", ""),
+                    "thumb": v.get("image") or (pics[0]["picture"] if pics else ""), "preview": small["link"]})
     return out
 
 
@@ -53,8 +56,10 @@ def _pixabay(query: str, portrait: bool, n: int = 20) -> list[dict]:
             continue
         if portrait != (f.get("height", 0) > f.get("width", 1)):
             continue
+        tiny = vids.get("tiny") or vids.get("small") or f
         out.append({"source": "pixabay", "id": str(h["id"]), "url": f["url"],
-                    "duration": h.get("duration", 0), "credit": h.get("user", "")})
+                    "duration": h.get("duration", 0), "credit": h.get("user", ""),
+                    "thumb": f.get("thumbnail") or tiny.get("thumbnail", ""), "preview": tiny.get("url", f["url"])})
     return out
 
 

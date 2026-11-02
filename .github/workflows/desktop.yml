@@ -1,0 +1,49 @@
+# GitHub에 올리면 Windows/Mac 앱을 자동으로 빌드합니다.
+# Actions 탭 → 실행 결과 → Artifacts 에서 다운로드. v* 태그를 push 하면 Releases 에도 올라갑니다.
+name: Build desktop app
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt -r requirements-desktop.txt
+      - name: ffmpeg (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip -OutFile ffmpeg.zip
+          Expand-Archive ffmpeg.zip -DestinationPath ffmpeg_tmp
+          New-Item -ItemType Directory -Force packaging/ffmpeg/bin | Out-Null
+          Copy-Item ffmpeg_tmp/*/bin/ffmpeg.exe, ffmpeg_tmp/*/bin/ffprobe.exe packaging/ffmpeg/bin/
+      - name: ffmpeg (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p packaging/ffmpeg/bin
+          curl -L https://evermeet.cx/ffmpeg/getrelease/zip -o ff.zip && unzip -o ff.zip -d packaging/ffmpeg/bin
+          curl -L https://evermeet.cx/ffmpeg/getrelease/ffprobe/zip -o fp.zip && unzip -o fp.zip -d packaging/ffmpeg/bin
+      - run: pyinstaller packaging/ytgen.spec --noconfirm
+      - name: zip
+        shell: bash
+        run: |
+          cd dist
+          if [ "$RUNNER_OS" = "Windows" ]; then 7z a ../ytgen-studio-windows.zip ytgen-studio; else ditto -c -k --keepParent "ytgen Studio.app" ../ytgen-studio-mac.zip; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ytgen-studio-${{ runner.os }}
+          path: ytgen-studio-*.zip
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: ytgen-studio-*.zip
