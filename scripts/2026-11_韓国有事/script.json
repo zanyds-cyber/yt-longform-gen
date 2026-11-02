@@ -1,0 +1,248 @@
+{
+  "title": "もし韓国で戦争が起きたら、日本の暮らしはどうなる？【ずんだもん解説】",
+  "title_candidates": [
+    "【もしも】朝鮮半島で戦争が起きた日、日本で起きること【ずんだもん解説】",
+    "韓国で有事が起きたら、日本はどこまで巻き込まれるのか？",
+    "対馬から韓国が見える…朝鮮半島有事が日本に近すぎる理由"
+  ],
+  "description": "もし朝鮮半島で戦争が起きたら、日本の暮らしには何が起きるのでしょうか。\n休戦中という現状、Jアラート、韓国にいる日本人の退避、在日米軍と国連軍、物流や半導体への影響、そして今日からできる備えまで、ずんだもんと四国めたんが分かりやすく解説します。\n\n※本動画は仮定のシナリオを解説するもので、特定の国や人々を批判する意図はありません。\n※最新の状況や避難方法は、必ず公式情報をご確認ください。\n・内閣官房 国民保護ポータルサイト\n・外務省 海外安全ホームページ／たびレジ",
+  "tags": [
+    "朝鮮半島有事",
+    "韓国",
+    "北朝鮮",
+    "日本",
+    "Jアラート",
+    "国民保護",
+    "防災",
+    "備蓄",
+    "地政学",
+    "ずんだもん解説",
+    "ずんだもん",
+    "四国めたん",
+    "雑学",
+    "解説",
+    "もしも"
+  ],
+  "thumbnail_text": "日本も他人事じゃない",
+  "thumbnail_image_prompt": "dramatic map of the Korean peninsula and Japan with glowing red tension lines across the sea, dark background, cinematic, no text",
+  "topic": "もし韓国で戦争が起きたら（日本の視聴者向け）",
+  "fact_check": [
+    "対馬から晴れた日に釜山が見える（対馬・韓国展望所）。ソウル〜対馬は直線約390km＝東京〜大阪(約400km)程度",
+    "釜山〜対馬 約50km",
+    "軍事境界線〜ソウル 約50km（資料により40〜60km）",
+    "韓国の人口の約半分が首都圏",
+    "2022年10月 ミサイル日本上空通過で北海道・東北(青森など)にJアラート",
+    "在韓日本人『数万人』（外務省 海外在留邦人数調査で最新値を確認）",
+    "国連軍後方司令部＝横田基地、国連軍使用可能な在日米軍基地（横須賀・佐世保・嘉手納など）",
+    "自衛隊法による在外邦人等の輸送・保護措置、相手国の同意",
+    "Jアラート時の行動（国民保護ポータルサイトの記載どおりか）",
+    "備蓄：最低3日分、できれば1週間分（農林水産省の推奨）"
+  ],
+  "sections": [
+    {
+      "heading": "オープニング",
+      "scenes": [
+        {
+          "narration": "ずんだもん：めたん、ニュースで『朝鮮半島有事』って言葉をよく聞くのだ。でも正直、ボクには関係ない遠い話なのだ。\n四国めたん：そう思うわよね。でもね、ずんだもん。長崎県の対馬からは、晴れた日に韓国・釜山の街が見えるのよ。距離はわずか五十キロほど。",
+          "image_prompt": "map of the Korean peninsula and western Japan, simple clean infographic style, sea in between",
+          "stock_query": "korea japan map"
+        },
+        {
+          "narration": "ずんだもん：えっ、外国の街が肉眼で見えるのだ！？\n四国めたん：もし韓国で戦争が起きたら、日本も決して無関係ではいられないの。スマホの警報、スーパーの棚、ガソリン代、そして私たちの安全まで。\n四国めたん：今日は『もしも』のシナリオとして、日本の暮らしに何が起きるのかを順番に見ていきましょう。",
+          "image_prompt": "smartphone showing an emergency alert on a desk in a Japanese apartment, night, tense mood",
+          "stock_query": "smartphone alert night"
+        },
+        {
+          "narration": "四国めたん：最初にお伝えしておくと、これは特定の国や人々を責める動画ではないわ。起きてほしくないからこそ、知っておく。そういう動画よ。\nずんだもん：わかったのだ。ちゃんと最後まで聞くのだ！",
+          "image_prompt": "calm sunrise over a quiet Japanese coastal town, hopeful",
+          "stock_query": "sunrise japan coast"
+        }
+      ]
+    },
+    {
+      "heading": "朝鮮半島はまだ戦争中？",
+      "scenes": [
+        {
+          "narration": "ずんだもん：そもそも、なんで韓国と北朝鮮はそんなに仲が悪いのだ？\n四国めたん：始まりは一九五〇年の朝鮮戦争よ。三年間、激しい戦いが続いて、一九五三年に『休戦協定』が結ばれたの。\nずんだもん：休戦ってことは、終わったのだ？",
+          "image_prompt": "old black and white style illustration of a divided peninsula, historical documentary mood, no people",
+          "stock_query": "old map history"
+        },
+        {
+          "narration": "四国めたん：そこがポイントよ。休戦は『いったん戦うのをやめよう』という約束で、平和条約ではないの。だから法律上は、今も戦争が終わっていない状態なのよ。\nずんだもん：七十年以上も一時停止のままなのだ！？知らなかったのだ…。",
+          "image_prompt": "barbed wire fence along a border at dusk, symbolic, no soldiers",
+          "stock_query": "border fence"
+        },
+        {
+          "narration": "四国めたん：両国の境目には軍事境界線があって、そこから韓国の首都ソウルまでは、およそ五十キロ。\n四国めたん：しかも韓国では、人口のおよそ半分がソウル周辺の首都圏に集まっているの。\nずんだもん：首都が境目のすぐそばにあるのは、ちょっと怖いのだ…。",
+          "image_prompt": "Seoul city skyline at dusk with Han river, wide shot",
+          "stock_query": "seoul skyline"
+        }
+      ]
+    },
+    {
+      "heading": "最初の24時間に起きること",
+      "scenes": [
+        {
+          "narration": "ずんだもん：もし本当に戦争が始まったら、最初に何が起きるのだ？\n四国めたん：これはあくまで、専門家がよく想定するシナリオの一つよ。まず韓国国内では、空港や道路が大混乱になると考えられているわ。\n四国めたん：国外へ逃げようとする人、地方へ避難しようとする人で、交通がまひしてしまうのね。",
+          "image_prompt": "crowded international airport departure hall, people with luggage, motion blur",
+          "stock_query": "airport crowd"
+        },
+        {
+          "narration": "ずんだもん：日本ではどうなるのだ？\n四国めたん：日本で多くの人が最初に気づくのは、たぶんスマホの『Jアラート』ね。ミサイルなどの危険が迫ったとき、国が一斉に知らせる仕組みよ。\nずんだもん：あっ、聞いたことあるのだ！北朝鮮のミサイルのときに鳴ったやつなのだ。",
+          "image_prompt": "close up of a smartphone with a red emergency warning screen, Japanese city street background blurred",
+          "stock_query": "phone emergency alert"
+        },
+        {
+          "narration": "四国めたん：そう。実際に二〇二二年には、ミサイルが日本の上空を通過して、北海道や東北でJアラートが鳴ったわ。\n四国めたん：有事になれば、こうした警報が鳴る回数が増える可能性があるの。だからこそ、鳴ったときにどう動くかを知っておくことが大切なのよ。\nずんだもん：その方法、あとでちゃんと教えてほしいのだ！",
+          "image_prompt": "quiet northern Japanese town in early morning, overcast sky",
+          "stock_query": "japan town morning"
+        }
+      ]
+    },
+    {
+      "heading": "韓国にいる日本人は？",
+      "scenes": [
+        {
+          "narration": "ずんだもん：韓国には日本人もたくさんいるのだ。旅行に行ってる人もいるのだ。\n四国めたん：そうね。韓国に住んでいる日本人は数万人。さらに観光や出張で滞在している人も、いつも大勢いるわ。\nずんだもん：その人たちは、どうやって帰ってくるのだ？",
+          "image_prompt": "Japanese tourists walking on a busy street in Seoul Myeongdong, daytime",
+          "stock_query": "seoul street tourists"
+        },
+        {
+          "narration": "四国めたん：まずは民間の飛行機や船で、できるだけ早く出国するのが基本よ。外務省の『海外安全ホームページ』や『たびレジ』で、最新の情報が届くようになっているわ。\n四国めたん：それでも足りないときは、自衛隊の航空機や船で日本人を運ぶことも、法律で認められているの。",
+          "image_prompt": "airplane taking off at sunset from an airport runway",
+          "stock_query": "airplane takeoff sunset"
+        },
+        {
+          "narration": "ずんだもん：じゃあ自衛隊が助けに行けば安心なのだ！\n四国めたん：ただ、ここが難しいところでね。他の国で自衛隊が活動するには、基本的にその国の同意が必要なの。混乱の中で、どこまでスムーズにいくかは課題だと言われているわ。\nずんだもん：簡単な話じゃないのだ…。旅行に行くときは、たびレジに登録しておくのだ！",
+          "image_prompt": "ferry ship crossing a calm sea between Korea and Japan, aerial view",
+          "stock_query": "ferry sea aerial"
+        }
+      ]
+    },
+    {
+      "heading": "日本が無関係でいられない理由",
+      "scenes": [
+        {
+          "narration": "ずんだもん：でも、日本は戦争に参加しないのだ。だったら関係ないんじゃないのだ？\n四国めたん：実はそう単純でもないの。キーワードは『在日米軍』と『国連軍』よ。\nずんだもん：国連軍？なんだか急に話が大きくなったのだ。",
+          "image_prompt": "aerial view of a large airbase runway near a Japanese city, neutral documentary tone",
+          "stock_query": "airbase aerial"
+        },
+        {
+          "narration": "四国めたん：朝鮮戦争のとき、アメリカなどの国々は『国連軍』として戦ったの。その国連軍の後方の司令部は、今も東京の横田基地に置かれているわ。\n四国めたん：さらに、横須賀や佐世保、沖縄の嘉手納など、日本国内のいくつかの基地は、いざというとき国連軍も使える仕組みになっているの。\nずんだもん：えっ、日本の中に朝鮮半島とつながってる場所があるってことなのだ！",
+          "image_prompt": "navy port with ships at a Japanese harbor city, wide shot, overcast",
+          "stock_query": "navy port harbor"
+        },
+        {
+          "narration": "四国めたん：それに日本の法律にも、周辺で日本の平和に重大な影響がある事態に備えた枠組みがあるわ。状況によっては、自衛隊がアメリカ軍の後方支援をすることも考えられるの。\n四国めたん：どこまで関わるかは、そのときの政府と国会の判断になる。だからこそ、私たち一人ひとりが知っておく意味があるのよ。",
+          "image_prompt": "Japanese parliament building in Tokyo, clear sky",
+          "stock_query": "japan parliament"
+        }
+      ]
+    },
+    {
+      "heading": "台湾有事と重なったら？",
+      "scenes": [
+        {
+          "narration": "ずんだもん：最近、『台湾有事』って言葉もよく聞くのだ。もし台湾と朝鮮半島で、同時に何かが起きたらどうなるのだ？\n四国めたん：いま、まさに専門家の間で議論されているテーマね。二つが同時に起きる可能性について、心配する声が出ているの。",
+          "image_prompt": "map of East Asia showing Japan, Korean peninsula and Taiwan, clean infographic, night tones",
+          "stock_query": "east asia map"
+        },
+        {
+          "narration": "四国めたん：もし同時に起きれば、アメリカ軍の力が二つに分かれてしまうわ。そのぶん、真ん中にある日本の役割や負担が大きくなると考えられているの。\nずんだもん：日本は、ちょうど両方のあいだにあるのだ…。\n四国めたん：だからこそ『朝鮮半島だけの問題』として見るのではなく、東アジア全体の話として考える必要があるのよ。",
+          "image_prompt": "aerial view of Japanese islands from above the clouds at dawn",
+          "stock_query": "japan islands aerial"
+        }
+      ]
+    },
+    {
+      "heading": "私たちの暮らしへの影響",
+      "scenes": [
+        {
+          "narration": "ずんだもん：戦場にならなくても、生活は変わるのだ？\n四国めたん：変わる可能性は高いわ。まず物流。韓国の釜山港は、アジアの貨物が集まる大きな港なの。ここが止まると、日本に届く荷物にも遅れが出るかもしれないわ。",
+          "image_prompt": "container port with cranes and cargo ships, golden hour",
+          "stock_query": "container port cranes"
+        },
+        {
+          "narration": "四国めたん：次に半導体。スマホやパソコンに使われるメモリの多くは、韓国の企業が作っているの。\nずんだもん：それが止まったら、スマホやゲーム機が値上がりするかもしれないのだ！？\n四国めたん：そういう心配をする専門家は多いわね。世界中の工場が影響を受けるから、日本の自動車や家電づくりにも響くかもしれないわ。",
+          "image_prompt": "close up of computer memory chips and circuit board, macro, blue light",
+          "stock_query": "semiconductor chip"
+        },
+        {
+          "narration": "ずんだもん：ボクの好きな韓国のお菓子や、めたんが使ってる韓国コスメはどうなるのだ？\n四国めたん：輸入が止まったり、値段が上がったりするかもしれないわね。K-POPのライブや、気軽な韓国旅行も、しばらくはできなくなるでしょう。\nずんだもん：当たり前だと思ってたものが、全部平和の上にあったのだ…。",
+          "image_prompt": "colorful Korean cosmetics and snacks on a shop shelf in Tokyo, bright",
+          "stock_query": "korean cosmetics shop"
+        },
+        {
+          "narration": "四国めたん：それから、お金の話。株価が大きく下がったり、円の値段が乱高下したりすることも考えられるわ。\n四国めたん：海の安全が不安になれば、船の保険料が上がって、ガソリンや食べ物の値段にじわじわ響くこともあるの。\nずんだもん：戦争って、遠くのスーパーの値札まで変えちゃうのだ…。",
+          "image_prompt": "stock market display board with red numbers, blurred people, Tokyo",
+          "stock_query": "stock market board"
+        }
+      ]
+    },
+    {
+      "heading": "避難してくる人々",
+      "scenes": [
+        {
+          "narration": "ずんだもん：韓国の人たちが日本に逃げてくることもあるのだ？\n四国めたん：その可能性は、専門家の間でもずっと議論されているわ。さっき話したように、釜山から対馬までは五十キロほど。船なら数時間の距離よ。",
+          "image_prompt": "Tsushima island coastline seen from the sea, misty morning",
+          "stock_query": "island coast misty"
+        },
+        {
+          "narration": "四国めたん：もし多くの人が船で日本を目指したら、どこで受け入れるのか、住む場所や食べ物をどう用意するのか、決めておくべきことはたくさんあるの。\nずんだもん：困っている人を助けたい気持ちはあるけど、準備がないと混乱しちゃうのだ。\n四国めたん：そうね。だからこそ、平和なうちに考えておくことが大事なのよ。",
+          "image_prompt": "volunteers preparing supplies in a gymnasium shelter, blankets and water bottles",
+          "stock_query": "shelter volunteers supplies"
+        }
+      ]
+    },
+    {
+      "heading": "歴史が教えてくれること",
+      "scenes": [
+        {
+          "narration": "四国めたん：実は一九五〇年の朝鮮戦争のとき、日本は戦争に必要な物資の注文がたくさん来て、景気が良くなったの。『朝鮮特需』と呼ばれているわ。\nずんだもん：じゃあ、今回も日本は得をするのだ？",
+          "image_prompt": "vintage Japanese factory interior, sepia toned historical photo style, no text",
+          "stock_query": "vintage factory"
+        },
+        {
+          "narration": "四国めたん：それは違うと思うわ。今の世界は、部品も、お金も、人も、国境を越えて深くつながっているの。隣の国が傷つけば、そのダメージは日本にもそのまま返ってくるのよ。\nずんだもん：隣が困ると、自分も困る時代なのだ。",
+          "image_prompt": "global network connections over a world map at night, abstract",
+          "stock_query": "world network connection"
+        }
+      ]
+    },
+    {
+      "heading": "今日からできる備え",
+      "scenes": [
+        {
+          "narration": "ずんだもん：めたん、約束のやつを教えてほしいのだ！Jアラートが鳴ったらどうすればいいのだ？\n四国めたん：国の『国民保護ポータルサイト』で案内されている基本はこうよ。建物の中にいるなら、窓から離れて、できれば窓のない部屋へ。\n四国めたん：外にいるなら、頑丈な建物や地下に避難。近くになければ、物陰に身を隠すか、地面に伏せて頭を守るの。",
+          "image_prompt": "person crouching and covering head next to a sturdy concrete wall, instructional style illustration",
+          "stock_query": "safety drill"
+        },
+        {
+          "narration": "ずんだもん：覚えたのだ！窓から離れる、頑丈な建物、頭を守る、なのだ。\n四国めたん：次は備蓄ね。これは地震や台風にも役立つわ。水と食料は最低三日分、できれば一週間分。それにモバイルバッテリーとラジオもあると安心よ。",
+          "image_prompt": "emergency preparedness kit with water bottles, canned food, flashlight, radio on a table",
+          "stock_query": "emergency kit"
+        },
+        {
+          "narration": "四国めたん：最後に一番大事なのが、情報の見分け方。有事のときは、ネットに嘘の情報やあおる動画があふれるの。\n四国めたん：政府や自治体、外務省など、元の情報を確かめるクセをつけましょう。\nずんだもん：変な動画を見て慌てて拡散しない、なのだ！…あれ、この動画は大丈夫なのだ？\n四国めたん：ふふ、この動画も、気になったところは公式の情報で確かめてね。",
+          "image_prompt": "person checking official news on a laptop at home, calm lighting",
+          "stock_query": "laptop news reading"
+        }
+      ]
+    },
+    {
+      "heading": "まとめ",
+      "scenes": [
+        {
+          "narration": "四国めたん：今日のまとめよ。朝鮮半島は今も休戦中で、もし戦争が起きれば、日本は距離の近さ、米軍基地、経済のつながりで大きな影響を受けるわ。\n四国めたん：でも、知っておけば慌てずに行動できる。それが今日一番伝えたかったことよ。",
+          "image_prompt": "Japanese family having a calm dinner at home, warm light",
+          "stock_query": "family dinner home"
+        },
+        {
+          "narration": "ずんだもん：戦争は起きてほしくないのだ。でも、知っておくことは大事なのだ！\nずんだもん：みんなは、Jアラートが鳴ったときにどうするか決めてたのだ？コメントで教えてほしいのだ！\n四国めたん：参考になったら、チャンネル登録と高評価をお願いね。それでは、また次の『へぇ〜』でお会いしましょう。",
+          "image_prompt": "peaceful blue sky with birds over a Japanese city, hopeful ending",
+          "stock_query": "blue sky birds city"
+        }
+      ]
+    }
+  ]
+}

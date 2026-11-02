@@ -124,7 +124,20 @@ def create_app(cfg: dict, out_root: Path, config_path: str | None = None) -> Fla
  <label>주제 <input id=tp placeholder="例: 猫が箱に入りたがる本当の理由"></label>
  <label>길이(분) <input id=tm type=number value=12></label>
  <button onclick="api('script_topic',{{topic:tp.value,minutes:+tm.value}})">대본 작성</button>
+ <hr style="border:none;border-top:1px solid var(--line);margin:14px 0">
+ <h2>대본 가져오기</h2>
+ <p class=muted>script.json 또는 텍스트 대본(.txt: <code># 챕터</code> / 빈 줄 = 장면 / <code>ずんだもん：대사</code>)</p>
+ <label>제목 (.txt 일 때) <input id=imt placeholder="動画タイトル"></label>
+ <label class=file>파일 선택해서 가져오기<input type=file accept=".json,.txt" onchange="importScript(this)"></label>
 </section></div>
+<script>
+async function importScript(input){{
+  const fd=new FormData(); fd.append('file',input.files[0]); fd.append('title',imt.value);
+  const j=await (await fetch('/import_script',{{method:'POST',body:fd}})).json();
+  if(!j.ok){{alert(j.error||'가져오기 실패');return}}
+  location.href='/edit?name='+encodeURIComponent(j.goto);
+}}
+</script>
 <section class=card><h2>프로젝트</h2><table><tr><th>제목</th><th>단계</th><th>생성</th></tr>{''.join(rows)}</table></section>
 """)
 
@@ -338,6 +351,35 @@ def create_app(cfg: dict, out_root: Path, config_path: str | None = None) -> Fla
             abort(404)
         write_json(sp, sc)
         return ok()
+
+    @app.post("/import_script")
+    def import_script():
+        from . import pipeline, script as script_mod
+        f = request.files.get("file")
+        if not f:
+            raise RuntimeError("파일을 선택하세요")
+        raw = f.read().decode("utf-8-sig")
+        ext = Path(f.filename or "").suffix.lower()
+        if ext == ".json":
+            import json as _json
+            try:
+                data = _json.loads(raw)
+            except ValueError:
+                raise RuntimeError("JSON 형식이 올바르지 않습니다")
+            if not isinstance(data, dict) or not data.get("sections") or not data.get("title"):
+                raise RuntimeError("ytgen 대본(script.json) 형식이 아닙니다")
+            for sec in data["sections"]:
+                for sc in sec.get("scenes", []):
+                    sc.pop("media", None)  # 다른 PC의 파일 경로는 무효
+            title = data["title"]
+        else:
+            title = (request.form.get("title") or Path(f.filename or "script").stem).strip()
+            data = script_mod.from_text(raw, title)
+            if not data["sections"]:
+                raise RuntimeError("대본에서 장면을 찾지 못했습니다")
+        p = pipeline.new_project(out_root, title)
+        write_json(p / "script.json", data)
+        return ok(goto=rel(p))
 
     @app.post("/upload_media")
     def upload_media():

@@ -79,6 +79,9 @@ python -m ytgen web        # → http://127.0.0.1:8765
 > - Mac 빌드는 Apple Silicon(M1~M4)용입니다. Intel Mac은 방법 C(`python -m ytgen app`)를 쓰세요.
 > VOICEVOX는 별도 설치 후 실행해 두세요 (설정 화면의 [VOICEVOX 실행] 버튼으로도 가능).
 
+## 대본 모음
+- [もし韓国で戦争が起きたら、日本の暮らしはどうなる？](scripts/2026-11_韓国有事/README.md) — 검토용 문서(한국어 요약·사실 확인 목록) + 앱에서 가져올 `script.json`
+
 ## 사용법 — CLI
 
 ```bash
