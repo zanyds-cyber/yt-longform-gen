@@ -49,12 +49,20 @@ def user_config_path() -> Path:
 
 # ---------- ffmpeg 위치 ----------
 def _tool(name: str) -> str:
+    """ffmpeg/ffprobe 위치: 앱에 포함/설치된 것 → PATH → Homebrew 경로 순."""
     import shutil
     exe = name + (".exe" if sys.platform == "win32" else "")
     for d in (data_dir() / "ffmpeg" / "bin", data_dir() / "ffmpeg", RES / "ffmpeg" / "bin", RES / "ffmpeg"):
         if (d / exe).exists():
             return str(d / exe)
-    return shutil.which(name) or name
+    found = shutil.which(name)
+    if found:
+        return found
+    # Mac 앱은 Finder에서 실행되면 셸 PATH(Homebrew)를 물려받지 못함
+    for d in (Path("/opt/homebrew/bin"), Path("/usr/local/bin")):
+        if (d / exe).exists():
+            return str(d / exe)
+    return name
 
 
 def ffmpeg_ok() -> bool:

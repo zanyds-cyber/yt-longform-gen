@@ -72,7 +72,11 @@ python -m ytgen web        # → http://127.0.0.1:8765
 
 **C. 빌드 없이 바로**: `pip install -r requirements.txt -r requirements-desktop.txt` 후 `python -m ytgen app`
 
-> 서명되지 않은 앱이라 처음 실행 때 경고가 뜹니다. Windows: [추가 정보] → [실행] / Mac: 우클릭 → [열기]
+> 서명되지 않은 앱이라 처음 실행 때 경고가 뜹니다.
+> - **Mac**: 앱을 [응용 프로그램] 폴더로 옮긴 뒤 한 번 열기 → 막히면 [시스템 설정 → 개인정보 보호 및 보안] 맨 아래 **[그래도 열기]**.
+>   그래도 "손상됨"이라고 나오면 터미널에서 `xattr -dr com.apple.quarantine "/Applications/ytgen Studio.app"`
+> - **Windows**: [추가 정보] → [실행]
+> - Mac 빌드는 Apple Silicon(M1~M4)용입니다. Intel Mac은 방법 C(`python -m ytgen app`)를 쓰세요.
 > VOICEVOX는 별도 설치 후 실행해 두세요 (설정 화면의 [VOICEVOX 실행] 버튼으로도 가능).
 
 ## 사용법 — CLI

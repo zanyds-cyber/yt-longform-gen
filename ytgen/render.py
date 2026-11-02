@@ -10,6 +10,7 @@ import math
 import os
 import random
 import re
+import sys
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -67,8 +68,12 @@ def write_ass(cues: list, path: Path, vc: dict, sc: dict, chars: list[dict]) -> 
            "Alignment, MarginL, MarginR, MarginV, Encoding")
     margin_lr = int(sc.get("margin_lr", 80))
 
+    font = sc.get("font") or "IPAGothic"
+    if font == "IPAGothic" and sys.platform in ("darwin", "win32"):
+        font = "Hiragino Sans" if sys.platform == "darwin" else "Meiryo"
+
     def style(name, color):
-        return (f"Style: {name},{sc.get('font', 'IPAGothic')},{sc.get('size', 62)},{color},&H00FFFFFF,"
+        return (f"Style: {name},{font},{sc.get('size', 62)},{color},&H00FFFFFF,"
                 f"&H00000000,&H80000000,1,0,0,0,100,100,1,0,1,{sc.get('outline', 4)},1,2,"
                 f"{margin_lr},{margin_lr},{sc.get('margin_bottom', 70)},1")
 

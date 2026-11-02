@@ -7,13 +7,13 @@ pip install --upgrade pip
 pip install -r requirements.txt -r requirements-desktop.txt
 if [ ! -x packaging/ffmpeg/bin/ffmpeg ]; then
   mkdir -p packaging/ffmpeg/bin
-  if command -v brew >/dev/null && brew list ffmpeg >/dev/null 2>&1; then
-    cp "$(brew --prefix)/bin/ffmpeg" "$(brew --prefix)/bin/ffprobe" packaging/ffmpeg/bin/ 2>/dev/null || true
-  fi
-  if [ ! -x packaging/ffmpeg/bin/ffmpeg ]; then
-    curl -L https://evermeet.cx/ffmpeg/getrelease/zip -o /tmp/ff.zip && unzip -o /tmp/ff.zip -d packaging/ffmpeg/bin
-    curl -L https://evermeet.cx/ffmpeg/getrelease/ffprobe/zip -o /tmp/fp.zip && unzip -o /tmp/fp.zip -d packaging/ffmpeg/bin
-  fi
+  # Homebrew ffmpeg 는 다른 라이브러리에 의존해서 복사만으로는 안 됨 → 정적 빌드 사용
+  rm -f packaging/ffmpeg/bin/*
+  if [ "$(uname -m)" = "arm64" ]; then B=https://ffmpeg.martin-riedl.de/redirect/latest/macos/arm64/release
+  else B=https://ffmpeg.martin-riedl.de/redirect/latest/macos/amd64/release; fi
+  curl -fL $B/ffmpeg.zip -o /tmp/ff.zip && unzip -o /tmp/ff.zip -d packaging/ffmpeg/bin || true
+  curl -fL $B/ffprobe.zip -o /tmp/fp.zip && unzip -o /tmp/fp.zip -d packaging/ffmpeg/bin || true
+  chmod +x packaging/ffmpeg/bin/* 2>/dev/null || true
 fi
 pyinstaller packaging/ytgen.spec --noconfirm
-echo "완료: dist/ytgen Studio.app  (처음 열 때: 우클릭 → 열기)"
+echo "완료: dist/ytgen Studio.app"

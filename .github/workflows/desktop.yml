@@ -11,7 +11,8 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [windows-latest, macos-latest]
+        os: [macos-latest, windows-latest]   # macos-latest = Apple Silicon(arm64)
+      fail-fast: false
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -27,12 +28,17 @@ jobs:
           Expand-Archive ffmpeg.zip -DestinationPath ffmpeg_tmp
           New-Item -ItemType Directory -Force packaging/ffmpeg/bin | Out-Null
           Copy-Item ffmpeg_tmp/*/bin/ffmpeg.exe, ffmpeg_tmp/*/bin/ffprobe.exe packaging/ffmpeg/bin/
-      - name: ffmpeg (macOS)
+      - name: ffmpeg (macOS, Apple Silicon)
         if: runner.os == 'macOS'
+        continue-on-error: true   # 실패하면 ffmpeg 없이 빌드 → 앱 설정 화면에서 설치
         run: |
           mkdir -p packaging/ffmpeg/bin
-          curl -L https://evermeet.cx/ffmpeg/getrelease/zip -o ff.zip && unzip -o ff.zip -d packaging/ffmpeg/bin
-          curl -L https://evermeet.cx/ffmpeg/getrelease/ffprobe/zip -o fp.zip && unzip -o fp.zip -d packaging/ffmpeg/bin
+          curl -fL https://ffmpeg.martin-riedl.de/redirect/latest/macos/arm64/release/ffmpeg.zip -o ff.zip
+          curl -fL https://ffmpeg.martin-riedl.de/redirect/latest/macos/arm64/release/ffprobe.zip -o fp.zip
+          unzip -o ff.zip -d packaging/ffmpeg/bin && unzip -o fp.zip -d packaging/ffmpeg/bin
+          chmod +x packaging/ffmpeg/bin/*
+          packaging/ffmpeg/bin/ffmpeg -hide_banner -filters | grep -q " ass " || (echo "no libass" && rm -rf packaging/ffmpeg && exit 1)
+          file packaging/ffmpeg/bin/ffmpeg
       - run: pyinstaller packaging/ytgen.spec --noconfirm
       - name: zip
         shell: bash

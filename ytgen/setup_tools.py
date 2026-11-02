@@ -16,7 +16,9 @@ from .common import _popen_kw, _tool, data_dir, log
 FFMPEG_URLS = {
     # 자막(libass) 포함 정적 빌드
     "win32": ["https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"],
-    "darwin": ["https://evermeet.cx/ffmpeg/getrelease/zip", "https://evermeet.cx/ffmpeg/getrelease/ffprobe/zip"],
+    "darwin-arm64": ["https://ffmpeg.martin-riedl.de/redirect/latest/macos/arm64/release/ffmpeg.zip",
+                     "https://ffmpeg.martin-riedl.de/redirect/latest/macos/arm64/release/ffprobe.zip"],
+    "darwin-x86_64": ["https://evermeet.cx/ffmpeg/getrelease/zip", "https://evermeet.cx/ffmpeg/getrelease/ffprobe/zip"],
 }
 
 
@@ -32,8 +34,40 @@ def ffmpeg_status() -> dict:
     return {"ok": ok, "path": exe, "version": v[:80], "subtitles": has_ass}
 
 
+def _brew() -> str | None:
+    for b in ("/opt/homebrew/bin/brew", "/usr/local/bin/brew"):
+        if Path(b).exists():
+            return b
+    return shutil.which("brew")
+
+
 def install_ffmpeg() -> str:
-    urls = FFMPEG_URLS.get(sys.platform)
+    key = sys.platform
+    if sys.platform == "darwin":
+        import platform
+        key = "darwin-arm64" if platform.machine() == "arm64" else "darwin-x86_64"
+        try:
+            return _download_ffmpeg(FFMPEG_URLS[key])
+        except Exception as e:
+            log(f"[setup] 정적 빌드 설치 실패 ({e}) → Homebrew로 시도")
+        brew = _brew()
+        if not brew:
+            raise RuntimeError("Homebrew가 없습니다. 터미널에서 https://brew.sh 의 설치 명령을 실행한 뒤 "
+                               "'brew install ffmpeg' 를 실행하고 앱을 다시 여세요.")
+        log("[setup] brew install ffmpeg (몇 분 걸립니다)")
+        p = subprocess.Popen([brew, "install", "ffmpeg"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        for line in p.stdout:
+            log("  " + line.rstrip()[:160])
+        if p.wait() != 0:
+            raise RuntimeError("brew install ffmpeg 실패")
+        st = ffmpeg_status()
+        if not st["ok"]:
+            raise RuntimeError("ffmpeg 설치 확인 실패")
+        return st["path"]
+    return _download_ffmpeg(FFMPEG_URLS.get(key))
+
+
+def _download_ffmpeg(urls) -> str:
     if not urls:
         raise RuntimeError("Linux에서는 패키지 관리자로 설치하세요:  sudo apt install ffmpeg")
     dest = data_dir() / "ffmpeg" / "bin"
@@ -61,7 +95,9 @@ def install_ffmpeg() -> str:
                     log(f"  설치: {dest / base}")
     st = ffmpeg_status()
     if not st["ok"]:
-        raise RuntimeError("ffmpeg 설치 확인 실패")
+        for f in dest.iterdir():
+            f.unlink()
+        raise RuntimeError("내려받은 ffmpeg가 이 PC에서 실행되지 않습니다")
     log(f"[setup] 완료: {st['version']}  (자막 지원: {'예' if st['subtitles'] else '아니오'})")
     return st["path"]
 
