@@ -361,13 +361,14 @@ async function uploadMedia(sc, input) {
 function openSearch(sc, q) { searchScene = sc; $('#sq').value = q || sc.stock_query || ''; $('#dlg').showModal(); doSearch(); }
 async function doSearch() {
   const g = $('#grid'); g.innerHTML = '<p class=muted style="padding:12px">검색 중…</p>';
-  const j = await (await fetch(`/api/stock_search?q=${enc($('#sq').value)}&portrait=${DOC.portrait ? 1 : 0}`)).json();
+  const j = await (await fetch(`/api/stock_search?q=${enc($('#sq').value)}&portrait=${DOC.portrait ? 1 : 0}&sources=${$('#ssrc').value}`)).json();
   g.innerHTML = '';
-  if (j.missing_keys.length === 2) { g.append(el('p', {class: 'muted', style: 'padding:12px', text: '설정에서 Pexels 또는 Pixabay API 키를 입력하면 무료 스톡 영상을 검색할 수 있어요.'})); return; }
+  if (j.missing_keys.length && !j.items.length && $('#ssrc').value.split(',').every(x => ['pexels', 'pixabay'].includes(x))) { g.append(el('p', {class: 'muted', style: 'padding:12px', text: '설정에서 Pexels 또는 Pixabay API 키를 입력하면 무료 스톡 영상을 검색할 수 있어요.'})); return; }
   if (!j.items.length) g.append(el('p', {class: 'muted', style: 'padding:12px', text: '결과가 없습니다. 영어로 짧게 검색해 보세요. ' + j.errors.join(' / ')}));
   for (const it of j.items) {
     const img = el('img', {src: it.thumb || '', loading: 'lazy'});
-    const card = el('div', {class: 'item', title: `${it.source} · ${it.credit}`}, img, el('span', {text: `${it.source} ${it.duration || ''}s`}));
+    const card = el('div', {class: 'item', title: `${it.source} · ${it.credit}`}, img, el('span', {text: `${it.source}${it.license ? ' · ' + it.license : ''}${it.duration ? ' · ' + it.duration + 's' : ''}`}));
+    if (it.title) card.title = `${it.title}\n${it.credit} · ${it.license || ''}`;
     card.onmouseenter = () => { if (!card._v && it.preview) { card._v = el('video', {src: it.preview, autoplay: '', loop: ''}); card._v.muted = true; img.replaceWith(card._v); } };
     card.onclick = async e => { toast('다운로드 중…'); await post('/api/set_stock', {project: NAME, index: searchScene.index, item: it, mode: e.shiftKey ? 'add' : 'replace'}); $('#dlg').close(); await load(); toast(e.shiftKey ? '영상을 추가했습니다' : '영상을 바꿨습니다'); };
     g.append(card);
@@ -433,8 +434,15 @@ def editor_page(name: str) -> str:
   <div id=list></div>
  </section>
 </main>
-<dialog id=dlg><div class=dhead><input id=sq placeholder="영어 검색어 (예: crow city)" onkeydown="if(event.key==='Enter')doSearch()"><button class=primary onclick="doSearch()">검색</button><button onclick="dlg.close()">닫기</button></div>
-<p class=muted style="margin:8px 12px 0">클릭: 이 영상으로 교체 · Shift+클릭: 장면에 추가 (Pexels/Pixabay, 상업 이용 가능)</p><div class=grid id=grid></div></dialog>
+<dialog id=dlg><div class=dhead><input id=sq placeholder="영어 검색어 (예: crow city)" onkeydown="if(event.key==='Enter')doSearch()">
+<select id=ssrc style="width:auto" onchange="doSearch()">
+ <option value="pexels,pixabay,wikimedia">전체 (스톡 + 위키미디어)</option>
+ <option value="pexels,pixabay">고화질 스톡 (Pexels·Pixabay)</option>
+ <option value="wikimedia">위키미디어 공용 (CC)</option>
+ <option value="archive">인터넷 아카이브 (기록·역사 영상)</option>
+ <option value="nasa">NASA (우주·과학)</option>
+</select><button class=primary onclick="doSearch()">검색</button><button onclick="dlg.close()">닫기</button></div>
+<p class=muted style="margin:8px 12px 0">클릭: 이 영상으로 교체 · Shift+클릭: 장면에 추가 · 모두 상업 이용 가능한 라이선스만 검색하며, CC 소재의 출처는 설명란에 자동으로 들어갑니다 · 긴 영상은 중간 20초만 잘라 옵니다</p><div class=grid id=grid></div></dialog>
 <div id=toast></div><div id=joblog></div>
 <script>{js}</script></body></html>"""
 
@@ -465,12 +473,21 @@ async function load() {
     <div class=pic>${c.image ? `<img src="${c.image}?v=${Date.now()}">` : '<span class=muted>이미지 없음</span>'}</div>
     <div class=f>
      <label>이름 (대본의 「이름：」) <input data-k=name value="${esc(c.name)}"></label>
-     <label>목소리 <select data-k=speaker>${spOpts(c.speaker)}</select></label>
+     <label>목소리 <span class=row style="flex-wrap:nowrap"><select data-k=speaker>${spOpts(c.speaker)}</select><button type=button onclick="listen(this)" title="미리 듣기" style="flex:none">▶ 듣기</button></span></label>
      <div class=row><label>자막 색 <input type=color data-k=color value="${c.color}"></label>
      <label>위치 <select data-k=position><option value=left ${c.position == 'left' ? 'selected' : ''}>왼쪽</option><option value=right ${c.position == 'right' ? 'selected' : ''}>오른쪽</option></select></label></div>
      <label>역할·말투 (대본 생성용) <input data-k=role value="${esc(c.role)}"></label>
      <label class=btn>스탠딩 이미지(PNG) 올리기<input type=file accept=".png,.webp" onchange="charImg(${i},this)" hidden></label>
     </div></div>`).join('');
+}
+const sample = new Audio();
+async function listen(btn) {
+  const sel = btn.parentNode.querySelector('select');
+  if (!S.voicevox.version) return toast('VOICEVOX가 연결되어 있어야 들을 수 있어요');
+  btn.disabled = true; btn.textContent = '…';
+  sample.src = `/api/voice_sample?speaker=${sel.value}&speed=${$('#speed').value}&v=${Date.now()}`;
+  try { await sample.play(); } catch (e) { toast('재생 실패: ' + e.message); }
+  btn.disabled = false; btn.textContent = '▶ 듣기';
 }
 async function save() {
   const keys = {}; for (const k of Object.keys(S.keys)) keys[k] = document.getElementById(k).value;
@@ -527,7 +544,7 @@ def settings_page() -> str:
 <section><h2>음성</h2><div class=row>
  <label>엔진 <select id=engine><option value=voicevox>VOICEVOX (무료·로컬)</option><option value=edge>Edge TTS (무료·인터넷)</option></select></label>
  <label>형식 <select id=mode><option value=dialogue>2인 대화 (掛け合い)</option><option value=narration>1인 내레이션</option></select></label>
- <label>1인 내레이션 목소리 <select id=narr></select></label>
+ <label>1인 내레이션 목소리 <span class=row style="flex-wrap:nowrap"><select id=narr></select><button type=button onclick="listen(this)" style="flex:none">▶ 듣기</button></span></label>
  <label>말하기 속도 <span id=speedv></span><input id=speed type=range min=0.8 max=1.6 step=0.05 oninput="speedv.textContent=this.value"></label></div>
  <h2 style="margin-top:14px">캐릭터</h2><div id=chars></div>
  <p class=muted>VOICEVOX는 설명란에 「VOICEVOX:캐릭터명」 크레딧이 필요합니다 (자동 삽입). 스탠딩 이미지는 배포처 이용 규약을 확인하세요.</p></section>

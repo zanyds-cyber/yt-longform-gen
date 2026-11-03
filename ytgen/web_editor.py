@@ -190,30 +190,39 @@ def register(app, cfg, out_root: Path, config_path, *, proj, rel, start, scene_a
         q = request.args.get("q", "").strip()
         portrait = request.args.get("portrait") == "1"
         items, errors = [], []
-        for n in cfg.get("media", {}).get("sources", ["pexels", "pixabay"]):
+        want = request.args.get("sources")
+        names_ = [x for x in want.split(",") if x in media_mod.SOURCES] if want else \
+            cfg.get("media", {}).get("sources", ["pexels", "pixabay", "wikimedia"])
+        for n in names_:
             try:
                 items += media_mod.SOURCES[n](q, portrait, 24)
             except Exception as e:
-                errors.append(f"{n}: {str(e)[:120]}")
-        missing = [k for k in ("PEXELS_API_KEY", "PIXABAY_API_KEY") if not os.environ.get(k)]
+                import requests as _rq
+                msg = ("연결할 수 없음(인터넷 연결 확인)" if isinstance(e, _rq.ConnectionError)
+                       else "요청이 너무 많음 — 잠시 후 다시" if "429" in str(e) else str(e)[:80])
+                errors.append(f"{n}: {msg}")
+        missing = [k for k in ("PEXELS_API_KEY", "PIXABAY_API_KEY") if not os.environ.get(k)
+                   and k.split("_")[0].lower() in names_]
         return jsonify({"items": items, "errors": errors, "missing_keys": missing})
 
     @app.post("/api/set_stock")
     def set_stock():
         b = request.get_json()
         p = proj(b.get("project"))
-        it = b["item"]
-        host = (urlparse(str(it.get("url", ""))).hostname or "").lower()
-        if it.get("source") not in media_mod.SOURCES or not host.endswith(("pexels.com", "pixabay.com", "vimeo.com", "vimeocdn.com")):
+        it = dict(b["item"])
+        if it.get("source") not in media_mod.SOURCES:
             abort(400)
-        dst = p / "work" / "stock" / f"{it['source']}_{int(it['id'])}.mp4"
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        media_mod._download(it["url"], dst)
+        if it.get("url"):
+            host = (urlparse(str(it["url"])).hostname or "").lower()
+            if not host.endswith(media_mod.ALLOWED_HOSTS):
+                abort(400)
+        elif it["source"] not in ("archive", "nasa"):
+            abort(400)
+        dst = media_mod.fetch(p, it, seconds=float(cfg.get("media", {}).get("clip_seconds", 20)))
         sc = read_json(p / "script.json")
         _, _, scene = scene_at(sc, int(b["index"]))
-        entry = {"type": "video", "path": str(dst.relative_to(p)), "source": it["source"], "id": str(it["id"]),
-                 "credit": it.get("credit", "")}
-        scene["media"] = ([*(scene.get("media") or [])] if b.get("mode") == "add" else []) + [entry]
+        e = media_mod.entry(p, it, dst)
+        scene["media"] = ([*(scene.get("media") or [])] if b.get("mode") == "add" else []) + [e]
         write_json(p / "script.json", sc)
         return ok()
 
@@ -342,6 +351,20 @@ def register(app, cfg, out_root: Path, config_path, *, proj, rel, start, scene_a
         save_settings({"tts": {"characters": chars}})
         reload_cfg()
         return ok()
+
+    @app.get("/api/voice_sample")
+    def voice_sample():
+        """설정 화면 '▶ 듣기': 선택한 VOICEVOX 목소리로 짧은 문장 합성."""
+        spk = int(request.args.get("speaker", 3))
+        speed = float(request.args.get("speed") or (tc().get("voicevox") or {}).get("speedScale", 1.0))
+        text = request.args.get("text") or "こんにちは。この声で、動画のナレーションを読み上げます。よろしくお願いします。"
+        d = data_dir() / "voice_samples"
+        d.mkdir(parents=True, exist_ok=True)
+        out = d / f"{short_hash(spk, speed, text)}.wav"
+        if not out.exists():
+            t = {**tc(), "voicevox": {**(tc().get("voicevox") or {}), "speedScale": speed}}
+            tts_mod._voicevox(text, out, t, {"speaker": spk})
+        return send_file(out, mimetype="audio/wav")
 
     @app.post("/api/install_ffmpeg")
     def install_ffmpeg():

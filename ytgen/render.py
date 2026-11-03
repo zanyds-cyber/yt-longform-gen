@@ -414,9 +414,7 @@ def build(project: Path, cfg: dict, only_thumbnail: bool = False) -> Path:
     (project / "subtitles.srt").write_text(
         "".join(f"{i}\n{srt_time(a)} --> {srt_time(b)}\n{t}\n\n" for i, (a, b, t) in enumerate(srt, 1)),
         encoding="utf-8")
-    stock_sources = sorted({m["source"] for sec in script["sections"] for s in sec["scenes"]
-                            for m in s.get("media") or [] if m.get("source") in media.SOURCES})
-    credit_lines = tts.credits(tc, speakers) + [f"動画素材: {s.capitalize()}" for s in stock_sources]
+    credit_lines = tts.credits(tc, speakers) + media_credits(script)
     write_description(script, chapters, project / "description.txt", credit_lines, cfg)
     write_json(project / "timeline.json", {"duration": t0, "chapters": chapters, "credits": credit_lines})
     log(f"[done] {final}  ({fmt_ts(duration(final))})")
@@ -444,6 +442,28 @@ def preview_scene(project: Path, cfg: dict, index: int) -> Path:
          "-c:a", "aac", "-b:a", "160k", "-ac", "2", "-shortest", str(out)])
     log(f"[preview] scene {index} → {out}")
     return out
+
+
+def media_credits(script: dict) -> list[str]:
+    """설명란 출처: Pexels/Pixabay 는 한 줄, CC·퍼블릭 도메인 소재는 항목별(제목/작성자/라이선스/링크)."""
+    stock, items, seen = set(), [], set()
+    for sec in script["sections"]:
+        for s in sec["scenes"]:
+            for m in s.get("media") or []:
+                if m.get("source") in ("pexels", "pixabay"):
+                    stock.add(m["source"].capitalize())
+                elif m.get("source") in media.LICENSED:
+                    key = (m["source"], m.get("id"))
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    name = {"wikimedia": "Wikimedia Commons", "archive": "Internet Archive", "nasa": "NASA"}[m["source"]]
+                    parts = [m.get("title") or name, m.get("credit") or name, m.get("license") or "", m.get("page") or ""]
+                    items.append("・" + " / ".join(p for p in parts if p))
+    lines = [f"動画素材: {', '.join(sorted(stock))}"] if stock else []
+    if items:
+        lines += ["映像素材（クリエイティブ・コモンズ／パブリックドメイン）:"] + items
+    return lines
 
 
 def _pick_bgm(path: str) -> Path | None:

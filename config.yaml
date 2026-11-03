@@ -40,7 +40,8 @@ tts:
 
 media:
   mode: auto                # auto(스톡 영상 → 없으면 이미지) | video | image
-  sources: [pexels, pixabay]
+  sources: [pexels, pixabay, wikimedia]   # 자동 선택에 쓸 소스 (archive, nasa 도 가능 — 검색 창에서는 모두 선택 가능)
+  clip_seconds: 20          # 긴 영상(위키미디어·아카이브·NASA)에서 잘라 올 길이(초)
   segment_seconds: 7        # 스톡 영상 1개당 길이 → 긴 장면은 여러 영상으로 이어붙임
   max_clips_per_scene: 4
 
