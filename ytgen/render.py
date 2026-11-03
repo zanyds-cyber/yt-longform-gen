@@ -61,23 +61,61 @@ def _style_name(speaker: str) -> str:
     return "S_" + short_hash(speaker) if speaker else "Default"
 
 
+def effective_chars(sc: dict, vc: dict) -> int:
+    """한 줄 글자 수: 설정값과 '화면 폭(좌우 여백 제외) ÷ 글자 크기' 중 작은 값 (잘림 방지)."""
+    mc = int(sc.get("max_chars", 24))
+    avail = vc["width"] - 2 * int(sc.get("margin_lr", 80))
+    fit = int(avail / (int(sc.get("size", 62)) * 1.02))
+    return max(6, min(mc, fit))
+
+
+def ass_color(c, alpha: int = 0, default: str = "&H00FFFFFF") -> str:
+    """'#RRGGBB'(설정 화면) 또는 '&HAABBGGRR'(ASS) → ASS 색."""
+    if not c:
+        return default
+    c = str(c).strip()
+    if c.upper().startswith("&H"):
+        return c.upper()
+    h = c.lstrip("#")
+    if len(h) != 6:
+        return default
+    return f"&H{alpha:02X}{h[4:6]}{h[2:4]}{h[0:2]}".upper()
+
+
+def subtitle_font(sc: dict) -> str:
+    font = sc.get("font") or "IPAGothic"
+    if font == "IPAGothic" and sys.platform in ("darwin", "win32"):
+        font = "Hiragino Sans" if sys.platform == "darwin" else "Meiryo"
+    return font
+
+
 def write_ass(cues: list, path: Path, vc: dict, sc: dict, chars: list[dict]) -> None:
     w, h = vc["width"], vc["height"]
     fmt = ("Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, "
            "Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, "
            "Alignment, MarginL, MarginR, MarginV, Encoding")
     margin_lr = int(sc.get("margin_lr", 80))
-
-    font = sc.get("font") or "IPAGothic"
-    if font == "IPAGothic" and sys.platform in ("darwin", "win32"):
-        font = "Hiragino Sans" if sys.platform == "darwin" else "Meiryo"
+    font = subtitle_font(sc)
+    size = int(sc.get("size", 62))
+    bold = -1 if sc.get("bold", True) else 0
+    if sc.get("box"):
+        # 배경 박스: BorderStyle 3 — 박스 색은 OutlineColour, Outline 값은 박스 여백
+        alpha = round((100 - int(sc.get("box_opacity", 60))) / 100 * 255)
+        border, edge, shadow = 3, max(6, size // 5), 0
+        outline_col = ass_color(sc.get("box_color", "#000000"), alpha, "&H80000000")
+    else:
+        border, edge, shadow = 1, int(sc.get("outline", 4)), int(sc.get("shadow", 1))
+        outline_col = ass_color(sc.get("outline_color", "#000000"), 0, "&H00000000")
+    fixed = sc.get("color_mode") == "fixed"
+    default_fill = ass_color(sc.get("color", "#FFFFFF"))
 
     def style(name, color):
-        return (f"Style: {name},{font},{sc.get('size', 62)},{color},&H00FFFFFF,"
-                f"&H00000000,&H80000000,1,0,0,0,100,100,1,0,1,{sc.get('outline', 4)},1,2,"
+        fill = default_fill if fixed else ass_color(color, 0, default_fill)
+        return (f"Style: {name},{font},{size},{fill},&H00FFFFFF,{outline_col},&H80000000,"
+                f"{bold},0,0,0,100,100,{sc.get('spacing', 1)},0,{border},{edge},{shadow},2,"
                 f"{margin_lr},{margin_lr},{sc.get('margin_bottom', 70)},1")
 
-    styles = [style("Default", sc.get("color", "&H00FFFFFF"))]
+    styles = [style("Default", sc.get("color", "#FFFFFF"))]
     styles += [style(_style_name(c["name"]), c.get("color", "&H00FFFFFF")) for c in chars]
     body = "".join(f"Dialogue: 0,{ass_time(a)},{ass_time(b)},{_style_name(spk)},,0,0,0,,{t}\n"
                    for a, b, t, spk in cues)
@@ -209,14 +247,15 @@ def plan_audio(project: Path, cfg: dict, script: dict, only: int | None = None) 
     gap = float(vc.get("sentence_gap", 0.25))
     tail = float(vc.get("scene_tail", 0.6))
     fps = vc["fps"]
-    max_chars = int(sc.get("max_chars", 24))
+    max_chars = effective_chars(sc, vc)
     gap_wav = _silence(work / f"gap_{gap}.wav", gap) if gap > 0 else None
     (work / "scenes").mkdir(parents=True, exist_ok=True)
     for p, us in zip(plans, utts):
         parts, t = [], 0.0
         for k, u in enumerate(us):
             wav, d = next(it)
-            chunks = split_chunks(u.text, max_chars)
+            chunks = [c for part in u.text.split(tts.SUB_BREAK) if part.strip()
+                      for c in split_chunks(part.strip(), max_chars)]
             total = sum(len(c) for c in chunks) or 1
             ct = t
             for c in chunks:

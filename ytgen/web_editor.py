@@ -58,8 +58,11 @@ def register(app, cfg, out_root: Path, config_path, *, proj, rel, start, scene_a
 
     def join_lines(lines: list[dict]) -> str:
         ns = names()
-        return "\n".join((f"{x['speaker']}：{x['text'].strip()}" if ns and x.get("speaker") in ns else x["text"].strip())
-                         for x in lines if x.get("text", "").strip())
+        def clean(t: str) -> str:  # 편집기의 줄바꿈 = 자막 나누기
+            parts = [p.strip() for p in t.replace("\r", "").replace(tts_mod.SUB_BREAK, "\n").split("\n")]
+            return tts_mod.SUB_BREAK.join(p for p in parts if p)
+        return "\n".join((f"{x['speaker']}：{clean(x['text'])}" if ns and x.get("speaker") in ns else clean(x["text"]))
+                         for x in lines if clean(x.get("text", "")))
 
     # ---------- 편집기 ----------
     @app.get("/edit")
@@ -95,6 +98,8 @@ def register(app, cfg, out_root: Path, config_path, *, proj, rel, start, scene_a
         final = p / "final.mp4"
         vc = cfg.get("video", {})
         return jsonify({"name": name, "title": sc["title"], "chapters": chapters, "characters": chars,
+                        "subtitle": subtitle_style(), "width": vc.get("width", 1920), "height": vc.get("height", 1080),
+                        "break_mark": tts_mod.SUB_BREAK,
                         "dialogue": bool(names()), "gap": vc.get("sentence_gap", 0.2),
                         "portrait": vc.get("height", 1080) > vc.get("width", 1920),
                         "final": f"/f?name={quote(name)}&path=final.mp4&v={int(final.stat().st_mtime)}" if final.exists() else None})
@@ -110,6 +115,41 @@ def register(app, cfg, out_root: Path, config_path, *, proj, rel, start, scene_a
             scene["stock_query"] = b["stock_query"]
         write_json(p / "script.json", sc)
         return ok()
+
+    STYLE_DEFAULTS = {"font": "", "size": 62, "bold": True, "outline": 5, "outline_color": "#000000",
+                      "color_mode": "speaker", "color": "#FFFFFF", "margin_bottom": 60, "margin_lr": 420,
+                      "max_chars": 24, "box": False, "box_color": "#000000", "box_opacity": 60, "shadow": 1}
+
+    def subtitle_style() -> dict:
+        from .render import subtitle_font
+        sub = cfg.get("subtitle", {})
+        st = {k: sub.get(k, v) for k, v in STYLE_DEFAULTS.items()}
+        st["font"] = subtitle_font(sub)
+        st["color"] = st["color"] if str(st["color"]).startswith("#") else ass_to_css(st["color"])
+        return st
+
+    @app.post("/api/subtitle_style")
+    def subtitle_style_save():
+        b = request.get_json() or {}
+        if b.get("reset"):
+            vals = dict(STYLE_DEFAULTS)
+            vals.pop("font")
+        else:
+            vals = {}
+            for k, d in STYLE_DEFAULTS.items():
+                if k not in b:
+                    continue
+                v = b[k]
+                if isinstance(d, bool):
+                    v = bool(v)
+                elif isinstance(d, int):
+                    v = int(float(v))
+                else:
+                    v = str(v).strip()
+                vals[k] = v
+        save_settings({"subtitle": vals})
+        reload_cfg()
+        return ok(subtitle=subtitle_style())
 
     @app.post("/api/heading")
     def heading():

@@ -35,8 +35,16 @@ main{flex:1;display:grid;grid-template-columns:minmax(380px,46%) 1fr;min-height:
 .stage .ch{position:absolute;bottom:0;height:46%;transition:opacity .2s,transform .2s;opacity:.6}
 .stage .ch.on{opacity:1;transform:translateY(-2%)}
 .stage .ch.pos-left{left:1.5%}.stage .ch.pos-right{right:1.5%}
-.sub{position:absolute;left:20%;right:20%;bottom:4%;z-index:3;text-align:center;font-weight:700;font-size:3.3cqw;line-height:1.35;color:#fff;
- text-shadow:-2px -2px 0 #000,2px -2px 0 #000,-2px 2px 0 #000,2px 2px 0 #000,0 0 6px #000}
+.sub{position:absolute;left:20%;right:20%;bottom:4%;z-index:3;text-align:center;font-weight:700;font-size:3.3cqw;line-height:1.35;color:#fff;white-space:pre-line}
+.sub span{white-space:pre;-webkit-box-decoration-break:clone;box-decoration-break:clone;border-radius:.15em}
+.stylep{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--panel);display:none}
+.stylep.open{display:block}
+.stylep .g{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px 12px;margin-bottom:8px}
+.stylep label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
+.stylep label.ck{flex-direction:row;align-items:center;gap:6px;color:var(--ink)}
+.stylep input[type=range]{padding:0}.stylep input[type=color]{height:32px;padding:2px}
+.stylep input[type=checkbox]{width:auto}
+.txt .brk{color:var(--acc);font-size:11px;user-select:none}
 .controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .bar{flex:1;height:6px;background:var(--line);border-radius:6px;overflow:hidden;min-width:120px;cursor:pointer}
 .bar i{display:block;height:100%;background:var(--acc);width:0}
@@ -58,7 +66,7 @@ main{flex:1;display:grid;grid-template-columns:minmax(380px,46%) 1fr;min-height:
 .line:hover{background:var(--hl)}
 .line.cur{background:var(--hl);box-shadow:inset 3px 0 0 var(--acc)}
 .spk{font-size:12px;font-weight:700;padding:2px 8px;border-radius:99px;border:1.5px solid currentColor;background:transparent;margin-top:2px}
-.txt{outline:none;padding:3px 4px;border-radius:5px;min-height:1.5em;word-break:break-word}
+.txt{outline:none;padding:3px 4px;border-radius:5px;min-height:1.5em;word-break:break-word;white-space:pre-wrap}
 .txt:focus{background:var(--panel);box-shadow:0 0 0 2px var(--acc)}
 .line .tools{display:flex;gap:2px;opacity:.5}.line:hover .tools{opacity:1}
 .line .tools button{padding:2px 6px;font-size:12px}
@@ -97,6 +105,103 @@ function el(tag, attrs = {}, ...kids) {
   for (const k of kids) if (k) e.append(k);
   return e;
 }
+const BRK = '⏎';
+function toEdit(t) { return (t || '').split(BRK).join('\n'); }
+function fromEdit(t) { return (t || '').replace(/\r/g, '').split('\n').map(x => x.trim()).filter(Boolean).join(BRK); }
+// 자막 조각: Enter로 나눈 곳 + 너무 긴 곳은 자동으로 나눔(최대 2줄)
+function pieces(text) {
+  const mc = fitChars(), lim = mc * 2, out = [];
+  for (let part of text.split(BRK).map(x => x.trim()).filter(Boolean)) {
+    while (part.length > lim) {
+      const n = Math.ceil(part.length / lim), target = part.length / n; let cut = -1, best = 1e9;
+      for (let i = 4; i <= lim && i < part.length - 3; i++) if ('、，,」』）'.includes(part[i - 1]) && Math.abs(i - target) < best) { best = Math.abs(i - target); cut = i; }
+      if (cut < 0 || best > target * 0.4) cut = Math.min(lim, Math.round(target));
+      out.push(part.slice(0, cut)); part = part.slice(cut);
+    }
+    if (part) out.push(part);
+  }
+  return out.map(p => wrap2(p, mc));
+}
+function wrap2(p, mc) {
+  if (p.length <= mc) return p;
+  const mid = p.length / 2; let cut = Math.ceil(mid), best = 1e9;
+  for (let i = 1; i < p.length; i++) if ('、，,」』）'.includes(p[i - 1]) && i <= mc + 1 && p.length - i <= mc + 1 && Math.abs(i - mid) < best) { best = Math.abs(i - mid); cut = i; }
+  return p.slice(0, cut) + '\n' + p.slice(cut);
+}
+function fitChars() {
+  const st = DOC.subtitle || {}, W = DOC.width || 1920;
+  const fit = Math.floor((W - 2 * (st.margin_lr ?? 80)) / ((st.size || 62) * 1.02));
+  return Math.max(6, Math.min(st.max_chars || 24, fit));
+}
+function hexA(hex, a) { const h = (hex || '#000000').replace('#', ''); const n = parseInt(h, 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; }
+let curPieces = [], curPiece = -1, curSpk = '';
+function setSub(text, spk) { curPieces = text ? pieces(text) : []; curSpk = spk; curPiece = -1; showPiece(0); }
+function showPiece(i) {
+  if (i === curPiece) return; curPiece = i;
+  const st = DOC.subtitle || {}, W = DOC.width || 1920, sub = $('#sub');
+  sub.innerHTML = ''; const t = curPieces[i]; if (!t) return;
+  const span = el('span'); span.textContent = t; sub.append(span);
+  span.style.color = st.color_mode === 'fixed' ? st.color : colorOf(curSpk);
+  if (st.box) { span.style.background = hexA(st.box_color, (st.box_opacity ?? 60) / 100); span.style.padding = '.08em .35em'; span.style.textShadow = 'none'; }
+  else {
+    const r = (st.outline ?? 5) / W * 100, sh = [];
+    for (let k = 0; k < 16; k++) { const a = k / 16 * 2 * Math.PI; sh.push(`${(r * Math.cos(a)).toFixed(3)}cqw ${(r * Math.sin(a)).toFixed(3)}cqw 0 ${st.outline_color || '#000'}`); }
+    if (st.shadow) sh.push(`${(r * .6).toFixed(3)}cqw ${(r * .6).toFixed(3)}cqw ${(r).toFixed(3)}cqw rgba(0,0,0,.6)`);
+    span.style.textShadow = r > 0 ? sh.join(',') : 'none';
+  }
+}
+function applySubStyle() {
+  const st = DOC.subtitle || {}, W = DOC.width || 1920, H = DOC.height || 1080, sub = $('#sub');
+  sub.style.fontFamily = `"${st.font}", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Meiryo", sans-serif`;
+  sub.style.fontSize = (st.size / W * 100) + 'cqw';
+  sub.style.fontWeight = st.bold ? '700' : '400';
+  sub.style.bottom = (st.margin_bottom / H * 100) + '%';
+  sub.style.left = sub.style.right = (Math.min(st.margin_lr, W * 0.4) / W * 100) + '%';
+  const keep = curPiece; if (curSpk !== undefined && FLAT[cur]) { const ln = FLAT[cur].sc.lines[FLAT[cur].li]; curPieces = pieces(ln.text); }
+  curPiece = -1; showPiece(Math.max(0, Math.min(keep, curPieces.length - 1)));
+  const fn = $('#fitnote'); if (fn) { const f = fitChars(); fn.textContent = f < (st.max_chars || 24) ? `※ 이 크기·여백에서는 한 줄에 ${f}자까지 들어가서 ${f}자로 나눕니다` : ''; }
+}
+audio.ontimeupdate = () => {
+  if (!curPieces.length || !audio.duration) return;
+  const lens = curPieces.map(p => p.replace('\n', '').length), tot = lens.reduce((a, b) => a + b, 0) || 1;
+  let acc = 0; const f = audio.currentTime / audio.duration * tot;
+  for (let i = 0; i < lens.length; i++) { acc += lens[i]; if (f < acc) { showPiece(i); return; } }
+  showPiece(lens.length - 1);
+};
+
+// ---------- 자막 스타일 패널 ----------
+const FONTS = ['Hiragino Sans', 'Hiragino Maru Gothic ProN', 'Hiragino Mincho ProN', 'YuGothic', 'YuMincho', 'Osaka', 'Noto Sans JP', 'Meiryo', 'IPAGothic'];
+function buildStylePanel() {
+  const st = DOC.subtitle, p = $('#stylep'); p.innerHTML = '';
+  const g = el('div', {class: 'g'});
+  const fontSel = el('select'); for (const f of [...new Set([st.font, ...FONTS])]) fontSel.append(new Option(f, f)); fontSel.append(new Option('직접 입력…', '__custom'));
+  fontSel.value = st.font;
+  fontSel.onchange = () => { let v = fontSel.value; if (v === '__custom') { v = prompt('PC에 설치된 글꼴 이름', st.font) || st.font; if (![...fontSel.options].some(o => o.value === v)) fontSel.insertBefore(new Option(v, v), fontSel.lastChild); fontSel.value = v; } st.font = v; applySubStyle(); };
+  g.append(el('label', {}, '글꼴', fontSel));
+  const rng = (label, key, min, max, step = 1) => { const v = el('span', {text: st[key]}); const i = el('input', {type: 'range', min, max, step, value: st[key]});
+    i.oninput = () => { st[key] = +i.value; v.textContent = i.value; applySubStyle(); }; return el('label', {}, el('span', {}, label + ' ', v), i); };
+  const col = (label, key) => { const i = el('input', {type: 'color', value: st[key]}); i.oninput = () => { st[key] = i.value; applySubStyle(); }; return el('label', {}, label, i); };
+  const ck = (label, key) => { const i = el('input', {type: 'checkbox'}); i.checked = !!st[key]; i.onchange = () => { st[key] = i.checked; applySubStyle(); buildStylePanel(); }; return el('label', {class: 'ck'}, i, label); };
+  g.append(rng('크기', 'size', 28, 140), rng('한 줄 글자 수', 'max_chars', 8, 40), rng('아래 여백(위치)', 'margin_bottom', 0, Math.round((DOC.height || 1080) * 0.6), 5), rng('좌우 여백', 'margin_lr', 20, Math.round((DOC.width || 1920) * 0.35), 10));
+  const mode = el('select'); mode.append(new Option('화자별 색', 'speaker'), new Option('한 가지 색', 'fixed')); mode.value = st.color_mode;
+  mode.onchange = () => { st.color_mode = mode.value; applySubStyle(); buildStylePanel(); };
+  g.append(el('label', {}, '글자색', mode));
+  if (st.color_mode === 'fixed') g.append(col('글자색 선택', 'color'));
+  p.append(g);
+  const g2 = el('div', {class: 'g'});
+  g2.append(ck('굵게', 'bold'), ck('배경 박스', 'box'));
+  if (st.box) g2.append(col('박스 색', 'box_color'), rng('박스 불투명도(%)', 'box_opacity', 10, 100, 5));
+  else g2.append(rng('테두리 두께', 'outline', 0, 16), col('테두리 색', 'outline_color'), ck('그림자', 'shadow'));
+  p.append(g2);
+  p.append(el('div', {class: 'controls'},
+    el('button', {class: 'primary', text: '스타일 저장', onclick: async () => { const j = await post('/api/subtitle_style', st); DOC.subtitle = j.subtitle; toast('자막 스타일을 저장했습니다. 영상 내보내기에 적용됩니다'); }}),
+    el('button', {text: '기본값으로', onclick: async () => { const j = await post('/api/subtitle_style', {reset: true}); DOC.subtitle = j.subtitle; buildStylePanel(); applySubStyle(); }}),
+    el('span', {class: 'muted', text: '미리보기에 바로 반영 · 저장하면 모든 영상에 적용'})));
+  p.append(el('div', {class: 'muted', id: 'fitnote', style: 'color:var(--warn);margin-top:6px'}));
+  applySubStyle();
+}
+function toggleStyle() { const p = $('#stylep'); if (!p.classList.contains('open')) buildStylePanel(); p.classList.toggle('open'); }
+
 function colorOf(spk) { const c = DOC.characters.find(c => c.name === spk); return c ? c.color : '#ffffff'; }
 function lineUrl(line) { return `/api/line_audio?name=${enc(NAME)}&speaker=${enc(line.speaker || '')}&text=${enc(line.text)}`; }
 
@@ -106,6 +211,7 @@ async function load(keepCur = true) {
   $('#title').textContent = DOC.title;
   if (DOC.portrait) $('#stage').classList.add('portrait');
   buildChars();
+  applySubStyle();
   render();
   if (keepCur && cur >= 0 && cur < FLAT.length) select(cur, false); else if (FLAT.length) select(0, false);
   $('#finalBtn').style.display = DOC.final ? '' : 'none';
@@ -159,12 +265,14 @@ function lineRow(sc, li) {
   if (!DOC.dialogue) spk.style.display = 'none';
   spk.onclick = e => { e.stopPropagation(); const ns = DOC.characters.map(c => c.name); if (!ns.length) return;
     ln.speaker = ns[(ns.indexOf(ln.speaker) + 1) % ns.length]; spk.textContent = ln.speaker; spk.style.color = colorOf(ln.speaker); saveScene(sc); };
-  const txt = el('div', {class: 'txt', contenteditable: 'plaintext-only', spellcheck: 'false'}); txt.textContent = ln.text;
+  const txt = el('div', {class: 'txt', contenteditable: 'plaintext-only', spellcheck: 'false'}); txt.textContent = toEdit(ln.text);
   if (txt.contentEditable !== 'plaintext-only') txt.contentEditable = 'true';
   txt.onfocus = () => select(fi, false);
-  txt.onblur = () => { const v = txt.textContent.replace(/\s*\n\s*/g, ''); if (v !== ln.text) { ln.text = v; saveScene(sc); } };
+  txt.onblur = () => { const v = fromEdit(txt.innerText); if (v !== ln.text) { ln.text = v; saveScene(sc); } if (cur === fi) setSub(ln.text, ln.speaker); };
+  txt.oninput = () => { if (cur === fi) setSub(fromEdit(txt.innerText), ln.speaker); };
   txt.onkeydown = e => {
-    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); txt.blur(); addLine(sc, li); }
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.isComposing) { e.preventDefault(); txt.blur(); addLine(sc, li); }
+    else if (e.key === 'Enter' && !e.isComposing && txt.contentEditable === 'true') { e.preventDefault(); document.execCommand('insertLineBreak'); }
     else if (e.key === 'Backspace' && !txt.textContent && sc.lines.length > 1) { e.preventDefault(); sc.lines.splice(li, 1); saveScene(sc).then(() => { render(); focusLine(Math.max(0, fi - 1)); }); }
     else if (e.key === 'Escape') txt.blur();
   };
@@ -214,7 +322,7 @@ function select(fi, scroll = true) {
   if (row) { row.classList.add('cur'); if (scroll) row.scrollIntoView({block: 'nearest', behavior: 'smooth'}); }
   const {sc, li} = FLAT[fi]; const ln = sc.lines[li];
   showMedia(sc);
-  $('#sub').textContent = ln.text; $('#sub').style.color = colorOf(ln.speaker);
+  setSub(ln.text, ln.speaker);
   $('#stage').querySelectorAll('.ch').forEach(c => c.classList.toggle('on', c.dataset.n === ln.speaker));
   $('#pos').textContent = `${fi + 1} / ${FLAT.length}`;
   $('#bar i').style.width = (100 * (fi + 1) / FLAT.length) + '%';
@@ -279,7 +387,7 @@ function watch(id, onDone) {
   }, 1200);
 }
 async function renderAll() { const j = await post('/api/build', {project: NAME}); watch(j.job, () => load()); }
-function showFinal() { stop(); const s = $('#stage'); s.dataset.key = 'final'; s.querySelectorAll('.bg,.card').forEach(e => e.remove()); $('#sub').textContent = ''; s.querySelectorAll('.ch').forEach(c => c.style.display = 'none');
+function showFinal() { stop(); const s = $('#stage'); s.dataset.key = 'final'; s.querySelectorAll('.bg,.card').forEach(e => e.remove()); setSub('', ''); s.querySelectorAll('.ch').forEach(c => c.style.display = 'none');
   const v = el('video', {class: 'bg', src: DOC.final, controls: ''}); v.style.zIndex = 5; s.prepend(v); v.play(); }
 
 document.addEventListener('keydown', e => {
@@ -313,9 +421,11 @@ def editor_page(name: str) -> str:
    <button class=primary id=play onclick="toggle()">▶ 재생</button>
    <button onclick="select(cur-1)" title="이전 줄 (↑)">⏮</button><button onclick="select(cur+1)" title="다음 줄 (↓)">⏭</button>
    <div class=bar id=bar><i></i></div><span id=pos class=muted></span>
+   <button onclick="toggleStyle()" title="자막 글꼴·크기·테두리·위치">Aa 자막 스타일</button>
   </div>
+  <div class=stylep id=stylep></div>
   <div class=muted id=status></div>
-  <p class=kbd>스페이스: 재생/정지 · ↑↓: 줄 이동 · 대사에서 Enter: 아래에 새 대사 · 빈 대사에서 Backspace: 삭제 · 화자 이름 클릭: 화자 바꾸기 · 영상 검색에서 Shift+클릭: 장면에 영상 추가</p>
+  <p class=kbd>스페이스: 재생/정지 · ↑↓: 줄 이동 · 대사에서 Enter: 자막 나누기(음성은 그대로) · ⌘+Enter: 아래에 새 대사 · 빈 대사에서 Backspace: 삭제 · 화자 이름 클릭: 화자 바꾸기 · 영상 검색에서 Shift+클릭: 장면에 영상 추가</p>
   <p class=kbd>미리보기는 렌더링 없이 바로 재생됩니다(자막 위치·크기는 실제 영상과 조금 다를 수 있어요). 최종 영상은 [영상 내보내기]로 만듭니다.</p>
  </section>
  <section class=right>

@@ -17,6 +17,7 @@ import requests
 
 from .common import duration, log, run, short_hash
 
+SUB_BREAK = "⏎"   # 편집기에서 Enter로 넣는 '자막 나누기' 표시 (음성에는 영향 없음)
 SENT_RE = re.compile(r"[^。！？!?\n]+[。！？!?」』）]*")
 SPEAKER_RE = re.compile(r"^\s*([^\s：:「」]{1,12})\s*[：:]\s*(.+)$")
 
@@ -122,9 +123,10 @@ def synthesize_all(utts: list[Utt], audio_dir: Path, cfg: dict) -> list[tuple[Pa
     jobs = []
     for u in utts:
         v = voice_for(u.speaker, cfg)
-        key = (engine, u.text, v.get("speaker"), v.get("edge_voice"), v.get("voicevox"),
+        spoken = u.text.replace(SUB_BREAK, "")
+        key = (engine, spoken, v.get("speaker"), v.get("edge_voice"), v.get("voicevox"),
                cfg.get("voicevox"), cfg.get("edge_rate"))
-        jobs.append((u.text, audio_dir / f"{short_hash(*key)}.wav", v))
+        jobs.append((spoken, audio_dir / f"{short_hash(*key)}.wav", v))
     todo = [j for j in jobs if not j[1].exists()]
     if todo:
         log(f"[tts] {engine}: {len(todo)} sentences")
