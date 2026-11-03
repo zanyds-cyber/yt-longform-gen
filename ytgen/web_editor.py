@@ -1,6 +1,7 @@
 """브루식 편집기(/edit)와 설정 화면(/settings)의 라우트."""
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import uuid
@@ -49,11 +50,10 @@ def register(app, cfg, out_root: Path, config_path, *, proj, rel, start, scene_a
             line = line.strip()
             if not line:
                 continue
-            m = tts_mod.SPEAKER_RE.match(line)
-            if ns and m and m.group(1) in ns:
-                out.append({"speaker": m.group(1), "text": m.group(2)})
-            else:
-                out.append({"speaker": out[-1]["speaker"] if out else (ns[0] if ns else ""), "text": line})
+            spk, opts, text = tts_mod.split_line(line, set(ns))
+            if not spk:
+                spk = out[-1]["speaker"] if out else (ns[0] if ns else "")
+            out.append({"speaker": spk, "text": text, "opts": opts})
         return out
 
     def join_lines(lines: list[dict]) -> str:
@@ -61,8 +61,11 @@ def register(app, cfg, out_root: Path, config_path, *, proj, rel, start, scene_a
         def clean(t: str) -> str:  # 편집기의 줄바꿈 = 자막 나누기
             parts = [p.strip() for p in t.replace("\r", "").replace(tts_mod.SUB_BREAK, "\n").split("\n")]
             return tts_mod.SUB_BREAK.join(p for p in parts if p)
-        return "\n".join((f"{x['speaker']}：{clean(x['text'])}" if ns and x.get("speaker") in ns else clean(x["text"]))
-                         for x in lines if clean(x.get("text", "")))
+        def opts(x):
+            return tts_mod.format_opts(tts_mod.parse_opts(tts_mod.format_opts(x.get("opts") or {})))
+        return "\n".join((f"{x['speaker']}{opts(x)}：{clean(x['text'])}" if ns and x.get("speaker") in ns
+                           else f"{opts(x)}{clean(x['text'])}")
+                          for x in lines if clean(x.get("text", "")))
 
     # ---------- 편집기 ----------
     @app.get("/edit")
@@ -77,7 +80,7 @@ def register(app, cfg, out_root: Path, config_path, *, proj, rel, start, scene_a
         p = proj(request.args.get("name"))
         sc = read_json(p / "script.json")
         name = rel(p)
-        chars = [{"name": c["name"], "color": ass_to_css(c.get("color")),
+        chars = [{"name": c["name"], "color": ass_to_css(c.get("color")), "speaker": c.get("speaker", 3),
                   "image": f"/charimg/{i}" if c.get("image") and Path(c["image"]).exists() else "",
                   "position": c.get("position", "right")}
                  for i, c in enumerate(tc().get("characters") or [])] if names() else []
@@ -99,7 +102,7 @@ def register(app, cfg, out_root: Path, config_path, *, proj, rel, start, scene_a
         vc = cfg.get("video", {})
         return jsonify({"name": name, "title": sc["title"], "chapters": chapters, "characters": chars,
                         "subtitle": subtitle_style(), "width": vc.get("width", 1920), "height": vc.get("height", 1080),
-                        "break_mark": tts_mod.SUB_BREAK,
+                        "break_mark": tts_mod.SUB_BREAK, "voicevox": tc().get("voicevox") or {},
                         "dialogue": bool(names()), "gap": vc.get("sentence_gap", 0.2),
                         "portrait": vc.get("height", 1080) > vc.get("width", 1920),
                         "final": f"/f?name={quote(name)}&path=final.mp4&v={int(final.stat().st_mtime)}" if final.exists() else None})
@@ -169,7 +172,12 @@ def register(app, cfg, out_root: Path, config_path, *, proj, rel, start, scene_a
             abort(400)
         t = tc()
         sents = tts_mod.split_sentences(text) or [text]
-        utts = [tts_mod.Utt(s, spk if names() else "") for s in sents]
+        try:
+            opts = tts_mod.parse_opts(tts_mod.format_opts(json.loads(request.args.get("opts") or "{}")))
+        except ValueError:
+            opts = {}
+        voice_opts = {k: v for k, v in opts.items() if k in ("v", "speed", "pitch", "into")}
+        utts = [tts_mod.Utt(s, spk if names() else "", voice_opts) for s in sents]
         res = tts_mod.synthesize_all(utts, p / "work" / "audio", t)
         if len(res) == 1:
             return send_file(res[0][0], mimetype="audio/wav", conditional=True)
@@ -267,6 +275,28 @@ def register(app, cfg, out_root: Path, config_path, *, proj, rel, start, scene_a
         sec["scenes"].pop(j)
         sc["sections"] = [s for s in sc["sections"] if s["scenes"]]
         write_json(p / "script.json", sc)
+        return ok()
+
+    @app.get("/api/voices")
+    def voices():
+        try:
+            return jsonify({"ok": True, "voices": tts_mod.voicevox_speakers(tc())})
+        except Exception:
+            return jsonify({"ok": False, "voices": [], "error": "VOICEVOX에 연결할 수 없습니다. VOICEVOX 앱을 켜 주세요."})
+
+    @app.post("/api/char_voice")
+    def char_voice():
+        """편집기에서 캐릭터의 기본 목소리 바꾸기 (설정에 저장, 모든 영상에 적용)."""
+        b = request.get_json()
+        chars = [dict(c) for c in tc().get("characters") or []]
+        for c in chars:
+            if c["name"] == b.get("name"):
+                c["speaker"] = int(b["speaker"])
+                break
+        else:
+            abort(404)
+        save_settings({"tts": {"characters": chars}})
+        reload_cfg()
         return ok()
 
     @app.get("/charimg/<int:i>")

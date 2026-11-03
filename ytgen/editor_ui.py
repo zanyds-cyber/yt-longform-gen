@@ -37,6 +37,14 @@ main{flex:1;display:grid;grid-template-columns:minmax(380px,46%) 1fr;min-height:
 .stage .ch.pos-left{left:1.5%}.stage .ch.pos-right{right:1.5%}
 .sub{position:absolute;left:20%;right:20%;bottom:4%;z-index:3;text-align:center;font-weight:700;font-size:3.3cqw;line-height:1.35;color:#fff;white-space:pre-line}
 .sub span{white-space:pre;-webkit-box-decoration-break:clone;box-decoration-break:clone;border-radius:.15em}
+.insp{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--panel)}
+.insp .ihead{margin-bottom:6px}.insp .sec{font-weight:700;font-size:13px;margin:10px 0 6px}
+.insp .g{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px 12px}
+.insp label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
+.insp input[type=range]{padding:0}.insp input[type=color]{height:32px;padding:2px}
+.insp label button.ghost{padding:0 4px;font-size:12px}
+.insp .controls select{width:auto;max-width:220px}
+.badge{display:inline-block;margin-left:6px;font-size:11px;color:var(--acc);border:1px solid var(--acc);border-radius:99px;padding:0 6px}
 .stylep{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--panel);display:none}
 .stylep.open{display:block}
 .stylep .g{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px 12px;margin-bottom:8px}
@@ -109,8 +117,8 @@ const BRK = '⏎';
 function toEdit(t) { return (t || '').split(BRK).join('\n'); }
 function fromEdit(t) { return (t || '').replace(/\r/g, '').split('\n').map(x => x.trim()).filter(Boolean).join(BRK); }
 // 자막 조각: Enter로 나눈 곳 + 너무 긴 곳은 자동으로 나눔(최대 2줄)
-function pieces(text) {
-  const mc = fitChars(), lim = mc * 2, out = [];
+function pieces(text, size) {
+  const mc = fitChars(size), lim = mc * 2, out = [];
   for (let part of text.split(BRK).map(x => x.trim()).filter(Boolean)) {
     while (part.length > lim) {
       const n = Math.ceil(part.length / lim), target = part.length / n; let cut = -1, best = 1e9;
@@ -128,23 +136,26 @@ function wrap2(p, mc) {
   for (let i = 1; i < p.length; i++) if ('、，,」』）'.includes(p[i - 1]) && i <= mc + 1 && p.length - i <= mc + 1 && Math.abs(i - mid) < best) { best = Math.abs(i - mid); cut = i; }
   return p.slice(0, cut) + '\n' + p.slice(cut);
 }
-function fitChars() {
+function fitChars(size) {
   const st = DOC.subtitle || {}, W = DOC.width || 1920;
-  const fit = Math.floor((W - 2 * (st.margin_lr ?? 80)) / ((st.size || 62) * 1.02));
+  const fit = Math.floor((W - 2 * (st.margin_lr ?? 80)) / ((size || st.size || 62) * 1.02));
   return Math.max(6, Math.min(st.max_chars || 24, fit));
 }
 function hexA(hex, a) { const h = (hex || '#000000').replace('#', ''); const n = parseInt(h, 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; }
-let curPieces = [], curPiece = -1, curSpk = '';
-function setSub(text, spk) { curPieces = text ? pieces(text) : []; curSpk = spk; curPiece = -1; showPiece(0); }
+let curPieces = [], curPiece = -1, curSpk = '', curOpts = {};
+function setSub(text, spk, opts) { curOpts = opts || {}; curPieces = text ? pieces(text, curOpts.size) : []; curSpk = spk; curPiece = -1; showPiece(0); }
 function showPiece(i) {
   if (i === curPiece) return; curPiece = i;
   const st = DOC.subtitle || {}, W = DOC.width || 1920, sub = $('#sub');
   sub.innerHTML = ''; const t = curPieces[i]; if (!t) return;
   const span = el('span'); span.textContent = t; sub.append(span);
-  span.style.color = st.color_mode === 'fixed' ? st.color : colorOf(curSpk);
+  const o = curOpts || {};
+  span.style.color = o.color || (st.color_mode === 'fixed' ? st.color : colorOf(curSpk));
+  if (o.size) span.style.fontSize = (o.size / W * 100) + 'cqw';
+  if (o.bold !== undefined) span.style.fontWeight = o.bold ? '700' : '400';
   if (st.box) { span.style.background = hexA(st.box_color, (st.box_opacity ?? 60) / 100); span.style.padding = '.08em .35em'; span.style.textShadow = 'none'; }
   else {
-    const r = (st.outline ?? 5) / W * 100, sh = [];
+    const r = (o.outline ?? st.outline ?? 5) / W * 100, sh = [];
     for (let k = 0; k < 16; k++) { const a = k / 16 * 2 * Math.PI; sh.push(`${(r * Math.cos(a)).toFixed(3)}cqw ${(r * Math.sin(a)).toFixed(3)}cqw 0 ${st.outline_color || '#000'}`); }
     if (st.shadow) sh.push(`${(r * .6).toFixed(3)}cqw ${(r * .6).toFixed(3)}cqw ${(r).toFixed(3)}cqw rgba(0,0,0,.6)`);
     span.style.textShadow = r > 0 ? sh.join(',') : 'none';
@@ -157,7 +168,7 @@ function applySubStyle() {
   sub.style.fontWeight = st.bold ? '700' : '400';
   sub.style.bottom = (st.margin_bottom / H * 100) + '%';
   sub.style.left = sub.style.right = (Math.min(st.margin_lr, W * 0.4) / W * 100) + '%';
-  const keep = curPiece; if (curSpk !== undefined && FLAT[cur]) { const ln = FLAT[cur].sc.lines[FLAT[cur].li]; curPieces = pieces(ln.text); }
+  const keep = curPiece; if (curSpk !== undefined && FLAT[cur]) { const ln = FLAT[cur].sc.lines[FLAT[cur].li]; curOpts = ln.opts || {}; curPieces = pieces(ln.text, curOpts.size); }
   curPiece = -1; showPiece(Math.max(0, Math.min(keep, curPieces.length - 1)));
   const fn = $('#fitnote'); if (fn) { const f = fitChars(); fn.textContent = f < (st.max_chars || 24) ? `※ 이 크기·여백에서는 한 줄에 ${f}자까지 들어가서 ${f}자로 나눕니다` : ''; }
 }
@@ -168,6 +179,93 @@ audio.ontimeupdate = () => {
   for (let i = 0; i < lens.length; i++) { acc += lens[i]; if (f < acc) { showPiece(i); return; } }
   showPiece(lens.length - 1);
 };
+
+// ---------- 선택한 대사 패널 (목소리·자막을 이 줄만 바꾸기) ----------
+let VOICES = null, inspTimer = null;
+async function loadVoices() { try { const j = await (await fetch('/api/voices')).json(); VOICES = j.voices || []; if (!j.ok) VOICES.error = j.error; } catch (e) { VOICES = []; } }
+function voiceName(id) { const v = (VOICES || []).find(v => v.id == id); return v ? `${v.name}（${v.style}）` : `ID ${id}`; }
+function voiceSelect(value, withDefault, defLabel) {
+  const sel = el('select');
+  if (withDefault) sel.append(new Option(defLabel, ''));
+  let last = '';
+  for (const v of VOICES || []) {
+    if (v.name !== last) { last = v.name; const og = el('optgroup', {label: v.name}); sel.append(og); }
+    sel.lastChild.append(new Option(`${v.name}（${v.style}）`, v.id));
+  }
+  if (value !== undefined && value !== '' && ![...sel.options].some(o => o.value == value)) sel.append(new Option(`ID ${value}`, value));
+  sel.value = value ?? '';
+  return sel;
+}
+function inspSave(sc) { clearTimeout(inspTimer); inspTimer = setTimeout(() => saveScene(sc).then(() => { render(); select(cur, false); }), 450); }
+function buildInspector() {
+  const box = $('#insp'); if (!box || !FLAT[cur]) return;
+  const {sc, li} = FLAT[cur], ln = sc.lines[li]; ln.opts = ln.opts || {}; const o = ln.opts;
+  const st = DOC.subtitle || {}, vvDef = DOC.voicevox || {};
+  box.innerHTML = '';
+  const char = DOC.characters.find(c => c.name === ln.speaker);
+  box.append(el('div', {class: 'ihead'}, el('b', {text: `선택한 대사 #${cur + 1}`}),
+    el('span', {class: 'muted', text: ' 여기서 바꾼 목소리·자막은 이 대사에만 적용돼요'})));
+  if (!VOICES) { box.append(el('p', {class: 'muted', text: '목소리 목록을 불러오는 중…'})); loadVoices().then(buildInspector); return; }
+
+  // 🎙 목소리
+  const vg = el('div', {class: 'g'});
+  if (DOC.dialogue) {
+    const spkSel = el('select'); for (const c of DOC.characters) spkSel.append(new Option(c.name, c.name)); spkSel.value = ln.speaker;
+    spkSel.onchange = () => { ln.speaker = spkSel.value; inspSave(sc); };
+    vg.append(el('label', {}, '화자', spkSel));
+  }
+  if (VOICES.error || !VOICES.length) vg.append(el('p', {class: 'muted', text: VOICES.error || 'VOICEVOX 목소리 목록이 없습니다'}));
+  else {
+    const def = char ? `${ln.speaker} 기본 — ${voiceName(char.speaker)}` : '기본 목소리';
+    const vs = voiceSelect(o.v, true, def);
+    vs.onchange = () => { if (vs.value === '') delete o.v; else o.v = +vs.value; inspSave(sc); };
+    vg.append(el('label', {}, '이 대사 목소리', vs));
+  }
+  const slider = (label, key, min, max, step, defv, fmt = x => x) => {
+    const val = o[key] ?? defv, out = el('span', {text: fmt(val) + (o[key] === undefined ? ' (기본)' : '')});
+    const i = el('input', {type: 'range', min, max, step, value: val});
+    i.oninput = () => { o[key] = +i.value; out.textContent = fmt(+i.value); };
+    i.onchange = () => inspSave(sc);
+    const reset = el('button', {class: 'ghost', text: '↺', title: '기본값', onclick: () => { delete o[key]; inspSave(sc); }});
+    return el('label', {}, el('span', {}, label + ' ', out, reset), i);
+  };
+  vg.append(slider('속도', 'speed', 0.6, 2.0, 0.05, vvDef.speedScale ?? 1.0),
+            slider('높이', 'pitch', -0.15, 0.15, 0.01, vvDef.pitchScale ?? 0),
+            slider('억양', 'into', 0, 2, 0.05, vvDef.intonationScale ?? 1));
+  box.append(el('div', {class: 'sec', text: '🎙 목소리'}), vg);
+  const vrow = el('div', {class: 'controls'}, el('button', {class: 'primary', text: '▶ 이 대사 듣기', onclick: () => playOne(cur)}));
+  if (char && VOICES.length) {
+    const cs = voiceSelect(char.speaker, false);
+    const apply = el('button', {text: '캐릭터 기본 목소리로 저장', onclick: async () => {
+      await post('/api/char_voice', {name: char.name, speaker: +cs.value}); char.speaker = +cs.value; toast(`${char.name}의 기본 목소리를 바꿨어요 (모든 대사·영상에 적용)`); buildInspector(); }});
+    vrow.append(el('span', {class: 'muted', text: `${char.name} 기본 목소리:`}), cs, apply);
+  }
+  box.append(vrow);
+
+  // Aa 이 대사 자막
+  const sg = el('div', {class: 'g'});
+  const subSlider = (label, key, min, max, defv) => {
+    const val = o[key] ?? defv, out = el('span', {text: val + (o[key] === undefined ? ' (기본)' : '')});
+    const i = el('input', {type: 'range', min, max, step: 1, value: val});
+    i.oninput = () => { o[key] = +i.value; out.textContent = i.value; setSub(ln.text, ln.speaker, o); };
+    i.onchange = () => inspSave(sc);
+    return el('label', {}, el('span', {}, label + ' ', out, el('button', {class: 'ghost', text: '↺', onclick: () => { delete o[key]; setSub(ln.text, ln.speaker, o); inspSave(sc); }})), i);
+  };
+  sg.append(subSlider('글자 크기', 'size', 28, 160, st.size || 62), subSlider('테두리', 'outline', 0, 16, st.outline ?? 5));
+  const col = el('input', {type: 'color', value: o.color || (st.color_mode === 'fixed' ? st.color : (char ? char.color : '#ffffff'))});
+  col.oninput = () => { o.color = col.value; setSub(ln.text, ln.speaker, o); };
+  col.onchange = () => inspSave(sc);
+  sg.append(el('label', {}, el('span', {}, '글자색 ', el('button', {class: 'ghost', text: '↺', onclick: () => { delete o.color; inspSave(sc); }})), col));
+  const bold = el('select'); bold.append(new Option('기본', ''), new Option('굵게', '1'), new Option('보통', '0')); bold.value = o.bold === undefined ? '' : String(o.bold);
+  bold.onchange = () => { if (bold.value === '') delete o.bold; else o.bold = +bold.value; setSub(ln.text, ln.speaker, o); inspSave(sc); };
+  sg.append(el('label', {}, '굵기', bold));
+  box.append(el('div', {class: 'sec', text: 'Aa 이 대사 자막 (강조용)'}), sg,
+    el('div', {class: 'controls'},
+      el('button', {text: '↺ 이 대사 설정 모두 지우기', onclick: () => { ln.opts = {}; inspSave(sc); }}),
+      el('button', {text: 'Aa 전체 자막 스타일…', onclick: () => { if (!$('#stylep').classList.contains('open')) toggleStyle(); $('#stylep').scrollIntoView({behavior: 'smooth'}); }})));
+}
+async function playOne(fi) { onlyOne = true; await playFrom(fi); }
+let onlyOne = false;
 
 // ---------- 자막 스타일 패널 ----------
 const FONTS = ['Hiragino Sans', 'Hiragino Maru Gothic ProN', 'Hiragino Mincho ProN', 'YuGothic', 'YuMincho', 'Osaka', 'Noto Sans JP', 'Meiryo', 'IPAGothic'];
@@ -203,7 +301,8 @@ function buildStylePanel() {
 function toggleStyle() { const p = $('#stylep'); if (!p.classList.contains('open')) buildStylePanel(); p.classList.toggle('open'); }
 
 function colorOf(spk) { const c = DOC.characters.find(c => c.name === spk); return c ? c.color : '#ffffff'; }
-function lineUrl(line) { return `/api/line_audio?name=${enc(NAME)}&speaker=${enc(line.speaker || '')}&text=${enc(line.text)}`; }
+function voiceOpts(line) { const o = line.opts || {}, v = {}; for (const k of ['v', 'speed', 'pitch', 'into']) if (o[k] !== undefined) v[k] = o[k]; return v; }
+function lineUrl(line) { return `/api/line_audio?name=${enc(NAME)}&speaker=${enc(line.speaker || '')}&text=${enc(line.text)}&opts=${enc(JSON.stringify(voiceOpts(line)))}`; }
 
 async function load(keepCur = true) {
   const r = await fetch('/api/doc?name=' + enc(NAME));
@@ -276,7 +375,11 @@ function lineRow(sc, li) {
     else if (e.key === 'Backspace' && !txt.textContent && sc.lines.length > 1) { e.preventDefault(); sc.lines.splice(li, 1); saveScene(sc).then(() => { render(); focusLine(Math.max(0, fi - 1)); }); }
     else if (e.key === 'Escape') txt.blur();
   };
-  const row = el('div', {class: 'line', 'data-f': fi}, spk, txt,
+  const o = ln.opts || {}, badges = [];
+  if (['v', 'speed', 'pitch', 'into'].some(k => o[k] !== undefined)) badges.push('🎙');
+  if (['size', 'color', 'bold', 'outline'].some(k => o[k] !== undefined)) badges.push('Aa');
+  const txtWrap = el('div', {}, txt, badges.length ? el('span', {class: 'badge', text: badges.join(' ') + ' 이 줄만 적용', title: '선택한 대사 패널에서 바꾼 설정'}) : null);
+  const row = el('div', {class: 'line', 'data-f': fi}, spk, txtWrap,
     el('div', {class: 'tools'},
       el('button', {class: 'ghost', text: '▶', title: '여기서부터 재생', onclick: e => { e.stopPropagation(); playFrom(fi); }}),
       el('button', {class: 'ghost danger', text: '✕', title: '대사 삭제', onclick: e => { e.stopPropagation(); if (sc.lines.length < 2) return toast('장면의 마지막 대사는 장면 삭제(✕)로 지워 주세요'); sc.lines.splice(li, 1); saveScene(sc).then(render); }})));
@@ -322,7 +425,8 @@ function select(fi, scroll = true) {
   if (row) { row.classList.add('cur'); if (scroll) row.scrollIntoView({block: 'nearest', behavior: 'smooth'}); }
   const {sc, li} = FLAT[fi]; const ln = sc.lines[li];
   showMedia(sc);
-  setSub(ln.text, ln.speaker);
+  setSub(ln.text, ln.speaker, ln.opts);
+  buildInspector();
   $('#stage').querySelectorAll('.ch').forEach(c => c.classList.toggle('on', c.dataset.n === ln.speaker));
   $('#pos').textContent = `${fi + 1} / ${FLAT.length}`;
   $('#bar i').style.width = (100 * (fi + 1) / FLAT.length) + '%';
@@ -345,9 +449,9 @@ async function playFrom(fi) {
   // 다음 줄 미리 생성
   const nx = FLAT[fi + 1]; if (nx) { const l2 = nx.sc.lines[nx.li]; if (l2.text.trim()) nextAudio.src = lineUrl(l2); }
 }
-audio.onended = () => { if (playing) setTimeout(() => playing && playFrom(cur + 1), (DOC.gap || 0.2) * 1000); };
+audio.onended = () => { if (onlyOne) { onlyOne = false; stop(); return; } if (playing) setTimeout(() => playing && playFrom(cur + 1), (DOC.gap || 0.2) * 1000); };
 function stop() { playing = false; audio.pause(); $('#play').textContent = '▶ 재생'; }
-function toggle() { playing ? stop() : playFrom(Math.max(0, cur)); }
+function toggle() { onlyOne = false; playing ? stop() : playFrom(Math.max(0, cur)); }
 
 // ---------- 소스 ----------
 async function autoMedia(sc, replace) { toast('화면 소스를 찾는 중…'); await post('/api/auto_media', {project: NAME, index: sc.index, replace}); await load(); toast('교체했습니다'); }
@@ -413,6 +517,7 @@ def editor_page(name: str) -> str:
  <span class=sp></span>
  <button id=finalBtn onclick="showFinal()" style="display:none">🎬 완성본 보기</button>
  <button class=primary onclick="renderAll()">⬇ 영상 내보내기</button>
+ <button onclick="toggleStyle()">Aa 자막 스타일</button>
  <a class="btn" href="/settings">⚙ 설정</a>
 </header>
 <main>
@@ -424,6 +529,7 @@ def editor_page(name: str) -> str:
    <div class=bar id=bar><i></i></div><span id=pos class=muted></span>
    <button onclick="toggleStyle()" title="자막 글꼴·크기·테두리·위치">Aa 자막 스타일</button>
   </div>
+  <div class=insp id=insp></div>
   <div class=stylep id=stylep></div>
   <div class=muted id=status></div>
   <p class=kbd>스페이스: 재생/정지 · ↑↓: 줄 이동 · 대사에서 Enter: 자막 나누기(음성은 그대로) · ⌘+Enter: 아래에 새 대사 · 빈 대사에서 Backspace: 삭제 · 화자 이름 클릭: 화자 바꾸기 · 영상 검색에서 Shift+클릭: 장면에 영상 추가</p>

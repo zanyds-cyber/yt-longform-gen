@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import re
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import requests
@@ -19,13 +19,49 @@ from .common import duration, log, run, short_hash
 
 SUB_BREAK = "⏎"   # 편집기에서 Enter로 넣는 '자막 나누기' 표시 (음성에는 영향 없음)
 SENT_RE = re.compile(r"[^。！？!?\n]+[。！？!?」』）]*")
-SPEAKER_RE = re.compile(r"^\s*([^\s：:「」]{1,12})\s*[：:]\s*(.+)$")
+SPEAKER_RE = re.compile(r"^\s*([^\s：:「」{}]{1,12})\s*(\{[^{}]*\})?\s*[：:]\s*(.+)$")
+OPTS_ONLY_RE = re.compile(r"^\s*(\{[^{}]*\})\s*(.+)$")   # 내레이션 모드: "{v:3}本文"
+
+# 줄별 옵션 (편집기 '선택한 대사' 패널): 목소리·속도·높이·억양, 자막 크기·색·굵기·테두리
+OPT_TYPES = {"v": int, "speed": float, "pitch": float, "into": float,
+             "size": int, "color": str, "bold": int, "outline": int}
+
+
+def parse_opts(raw: str | None) -> dict:
+    out = {}
+    for part in (raw or "").strip("{}").split(","):
+        if ":" not in part:
+            continue
+        k, v = (x.strip() for x in part.split(":", 1))
+        if k in OPT_TYPES and v != "":
+            try:
+                out[k] = OPT_TYPES[k](v)
+            except ValueError:
+                pass
+    return out
+
+
+def format_opts(opts: dict | None) -> str:
+    items = [f"{k}:{opts[k]}" for k in OPT_TYPES if opts and opts.get(k) not in (None, "")]
+    return "{" + ",".join(items) + "}" if items else ""
+
+
+def split_line(line: str, names: set[str]) -> tuple[str | None, dict, str]:
+    """'이름{옵션}：대사' / '{옵션}대사' / '대사' → (이름|None, 옵션, 대사)."""
+    m = SPEAKER_RE.match(line)
+    if names and m and m.group(1) in names:
+        return m.group(1), parse_opts(m.group(2)), m.group(3)
+    m = OPTS_ONLY_RE.match(line)
+    if m:
+        return None, parse_opts(m.group(1)), m.group(2)
+    return None, {}, line
 
 
 @dataclass
 class Utt:
     text: str          # 읽을 문장
     speaker: str       # 캐릭터 이름 ('' = 내레이터)
+    opts: dict = field(default_factory=dict)   # 줄별 목소리/자막 옵션
 
 
 def split_sentences(text: str) -> list[str]:
@@ -43,9 +79,10 @@ def parse_narration(text: str, cfg: dict) -> list[Utt]:
         line = line.strip()
         if not line:
             continue
-        if dialogue and (m := SPEAKER_RE.match(line)) and m.group(1) in names:
-            cur, line = m.group(1), m.group(2)
-        out += [Utt(s, cur if dialogue else "") for s in split_sentences(line)]
+        spk, opts, line = split_line(line, names if dialogue else set())
+        if spk:
+            cur = spk
+        out += [Utt(s, cur if dialogue else "", opts) for s in split_sentences(line)]
     return out
 
 
@@ -55,6 +92,26 @@ def voice_for(speaker: str, cfg: dict) -> dict:
         if c["name"] == speaker:
             return c
     return {"speaker": cfg.get("voicevox_speaker", 3), "edge_voice": cfg.get("edge_voice")}
+
+
+def voice_with_opts(v: dict, opts: dict) -> dict:
+    """줄별 옵션으로 목소리(VOICEVOX 스타일 ID)·속도·높이·억양 덮어쓰기."""
+    if not opts:
+        return v
+    v = dict(v)
+    if "v" in opts:
+        v["speaker"] = opts["v"]
+    vv = dict(v.get("voicevox") or {})
+    for k, name in (("speed", "speedScale"), ("pitch", "pitchScale"), ("into", "intonationScale")):
+        if k in opts:
+            vv[name] = opts[k]
+    if vv:
+        v["voicevox"] = vv
+    return v
+
+
+def used_voice_ids(utts: list[Utt], cfg: dict) -> set[int]:
+    return {int(voice_with_opts(voice_for(u.speaker, cfg), u.opts).get("speaker", 3)) for u in utts}
 
 
 def _to_wav(src: Path, dst: Path) -> None:
@@ -122,7 +179,7 @@ def synthesize_all(utts: list[Utt], audio_dir: Path, cfg: dict) -> list[tuple[Pa
     audio_dir.mkdir(parents=True, exist_ok=True)
     jobs = []
     for u in utts:
-        v = voice_for(u.speaker, cfg)
+        v = voice_with_opts(voice_for(u.speaker, cfg), u.opts)
         spoken = u.text.replace(SUB_BREAK, "")
         key = (engine, spoken, v.get("speaker"), v.get("edge_voice"), v.get("voicevox"),
                cfg.get("voicevox"), cfg.get("edge_rate"))
@@ -153,21 +210,22 @@ def voicevox_speakers(cfg: dict) -> list[dict]:
             for sp in r.json() for st in sp["styles"]]
 
 
-def credits(cfg: dict, used_speakers: set[str]) -> list[str]:
-    """VOICEVOX 이용 규약: 영상 설명란에 'VOICEVOX:캐릭터명' 크레딧 표기가 필요."""
+def credits(cfg: dict, used_speakers: set[str], used_ids: set[int] | None = None) -> list[str]:
+    """VOICEVOX 이용 규약: 영상 설명란에 'VOICEVOX:캐릭터명' 크레딧 표기가 필요.
+    실제로 사용한 스타일 ID로 캐릭터를 찾는다 (편집기에서 목소리를 바꿔도 정확하게)."""
     if cfg.get("engine") != "voicevox":
         return []
-    names = []
-    chars = cfg.get("characters") or []
-    if cfg.get("mode") == "dialogue" and chars:
-        names = [c.get("credit") or c["name"] for c in chars if c["name"] in used_speakers]
-    else:
-        name = cfg.get("voicevox_credit")
-        if not name:
-            try:
-                sid = cfg.get("voicevox_speaker", 3)
-                name = next(s["name"] for s in voicevox_speakers(cfg) if s["id"] == sid)
-            except Exception:
-                name = None
-        names = [name] if name else []
+    names: list[str] = []
+    if used_ids:
+        try:
+            by_id = {s["id"]: s["name"] for s in voicevox_speakers(cfg)}
+            names = [by_id[i] for i in sorted(used_ids) if i in by_id]
+        except Exception:
+            names = []
+    if not names:
+        chars = cfg.get("characters") or []
+        if cfg.get("mode") == "dialogue" and chars:
+            names = [c.get("credit") or c["name"] for c in chars if c["name"] in used_speakers]
+        elif cfg.get("voicevox_credit"):
+            names = [cfg["voicevox_credit"]]
     return [f"VOICEVOX:{n}" for n in dict.fromkeys(names)]

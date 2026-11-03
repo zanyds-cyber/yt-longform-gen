@@ -89,6 +89,21 @@ def subtitle_font(sc: dict) -> str:
     return font
 
 
+def line_tags(o: dict) -> str:
+    """줄별 자막 옵션 → ASS 인라인 태그 (크기·색·굵기·테두리)."""
+    tags = ""
+    if o.get("size"):
+        tags += f"\\fs{int(o['size'])}"
+    if o.get("color"):
+        c = ass_color(o["color"])           # &H00BBGGRR
+        tags += f"\\1c&H{c[-6:]}&"
+    if "bold" in o:
+        tags += "\\b1" if o["bold"] else "\\b0"
+    if "outline" in o:
+        tags += f"\\bord{int(o['outline'])}"
+    return "{" + tags + "}" if tags else ""
+
+
 def write_ass(cues: list, path: Path, vc: dict, sc: dict, chars: list[dict]) -> None:
     w, h = vc["width"], vc["height"]
     fmt = ("Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, "
@@ -117,8 +132,8 @@ def write_ass(cues: list, path: Path, vc: dict, sc: dict, chars: list[dict]) -> 
 
     styles = [style("Default", sc.get("color", "#FFFFFF"))]
     styles += [style(_style_name(c["name"]), c.get("color", "&H00FFFFFF")) for c in chars]
-    body = "".join(f"Dialogue: 0,{ass_time(a)},{ass_time(b)},{_style_name(spk)},,0,0,0,,{t}\n"
-                   for a, b, t, spk in cues)
+    body = "".join(f"Dialogue: 0,{ass_time(a)},{ass_time(b)},{_style_name(spk)},,0,0,0,,{line_tags(o)}{t}\n"
+                   for a, b, t, spk, *rest in cues for o in [rest[0] if rest else {}])
     path.write_text(f"[Script Info]\nScriptType: v4.00+\nPlayResX: {w}\nPlayResY: {h}\nWrapStyle: 2\n\n"
                     f"[V4+ Styles]\n{fmt}\n" + "\n".join(styles) +
                     "\n\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
@@ -219,6 +234,7 @@ class ScenePlan:
     wav: Path | None = None
     dur: float = 0.0
     speakers: set = field(default_factory=set)
+    voice_ids: set = field(default_factory=set)
 
 
 def _settings(cfg: dict):
@@ -247,22 +263,24 @@ def plan_audio(project: Path, cfg: dict, script: dict, only: int | None = None) 
     gap = float(vc.get("sentence_gap", 0.25))
     tail = float(vc.get("scene_tail", 0.6))
     fps = vc["fps"]
-    max_chars = effective_chars(sc, vc)
     gap_wav = _silence(work / f"gap_{gap}.wav", gap) if gap > 0 else None
     (work / "scenes").mkdir(parents=True, exist_ok=True)
     for p, us in zip(plans, utts):
         parts, t = [], 0.0
         for k, u in enumerate(us):
             wav, d = next(it)
+            sub_opts = {k: u.opts[k] for k in ("size", "color", "bold", "outline") if k in u.opts}
+            line_chars = effective_chars({**sc, **({"size": sub_opts["size"]} if "size" in sub_opts else {})}, vc)
             chunks = [c for part in u.text.split(tts.SUB_BREAK) if part.strip()
-                      for c in split_chunks(part.strip(), max_chars)]
+                      for c in split_chunks(part.strip(), line_chars)]
             total = sum(len(c) for c in chunks) or 1
             ct = t
             for c in chunks:
                 cd = d * len(c) / total
-                p.cues.append((ct, ct + cd, wrap_lines(c, max_chars), u.speaker))
+                p.cues.append((ct, ct + cd, wrap_lines(c, line_chars), u.speaker, sub_opts))
                 ct += cd
             p.speakers.add(u.speaker)
+            p.voice_ids |= tts.used_voice_ids([u], tc)
             parts.append(wav)
             t += d
             if gap_wav and k < len(us) - 1:
@@ -358,7 +376,7 @@ def build(project: Path, cfg: dict, only_thumbnail: bool = False) -> Path:
     _scene_media(project, plans, cfg, script)
     write_json(project / "script.json", script)  # 선택된 소스 기록
 
-    clips, jobs, srt, chapters, t0, speakers = [], [], [], [], 0.0, set()
+    clips, jobs, srt, chapters, t0, speakers, voice_ids = [], [], [], [], 0.0, set(), set()
     last_section = -1
     for p in plans:
         if p.section != last_section:
@@ -368,8 +386,9 @@ def build(project: Path, cfg: dict, only_thumbnail: bool = False) -> Path:
         clips.append(clip)
         if job:
             jobs.append(job)
-        srt += [(t0 + a, t0 + b, txt.replace("\\N", "\n")) for a, b, txt, _ in p.cues]
+        srt += [(t0 + c[0], t0 + c[1], c[2].replace("\\N", "\n")) for c in p.cues]
         speakers |= p.speakers
+        voice_ids |= p.voice_ids
         t0 += p.dur
 
     if jobs:
@@ -414,7 +433,7 @@ def build(project: Path, cfg: dict, only_thumbnail: bool = False) -> Path:
     (project / "subtitles.srt").write_text(
         "".join(f"{i}\n{srt_time(a)} --> {srt_time(b)}\n{t}\n\n" for i, (a, b, t) in enumerate(srt, 1)),
         encoding="utf-8")
-    credit_lines = tts.credits(tc, speakers) + media_credits(script)
+    credit_lines = tts.credits(tc, speakers, voice_ids) + media_credits(script)
     write_description(script, chapters, project / "description.txt", credit_lines, cfg)
     write_json(project / "timeline.json", {"duration": t0, "chapters": chapters, "credits": credit_lines})
     log(f"[done] {final}  ({fmt_ts(duration(final))})")
